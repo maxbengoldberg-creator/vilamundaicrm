@@ -95,7 +95,7 @@ export async function callClaude({ system, messages, tools }) {
   const resp = await anthropic.messages.create({
     model: env.anthropic.model,
     max_tokens: env.anthropic.maxTokens,
-    system,
+    system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
     tools,
     messages,
   });

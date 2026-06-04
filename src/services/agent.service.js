@@ -5,6 +5,7 @@ import { HANDLERS } from '../tools/handlers.js';
 import { zapi } from './zapi.service.js';
 import * as Lead from '../models/lead.model.js';
 import * as Cliente from '../models/cliente.model.js';
+import * as Setting from '../models/setting.model.js';
 import * as Conversation from '../models/conversation.model.js';
 import * as Message from '../models/message.model.js';
 
@@ -22,15 +23,28 @@ function isMsgCurta(text) {
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function toClaudeMessages(rows) {
-  const msgs = [];
+  let msgs = [];
   for (const r of rows) {
     if (r.raw) msgs.push(r.raw);
     else if (r.role === 'user' || r.role === 'assistant') msgs.push({ role: r.role, content: r.content });
   }
+  // Remove tool_results orfaos no inicio da janela (evita erro 400 da API)
+  while (msgs.length) {
+    const m = msgs[0];
+    const hasToolResult = Array.isArray(m.content) && m.content.some(b => b && b.type === 'tool_result');
+    if (m.role === 'user' && hasToolResult) msgs.shift();
+    else break;
+  }
+  // A janela deve comecar por mensagem do usuario
+  while (msgs.length && msgs[0].role !== 'user') msgs.shift();
   return msgs;
 }
 
 export async function handleIncoming({ phone, text, pushName }) {
+  const robotOn = await Setting.get('robot_enabled', true);
+  if (robotOn === false) {
+    return { skipped: true, reason: 'robot_desligado_geral' };
+  }
   const cliente = await Cliente.findByPhone(phone);
   if (cliente) {
     return handleClienteMessage({ cliente, phone, text });
@@ -60,7 +74,7 @@ export async function handleIncoming({ phone, text, pushName }) {
     return { ok: true, reply: ABERTURA };
   }
 
-  const history = await Message.listByConversation(conv.id);
+  const history = await Message.listRecent(conv.id, 20);
   let messages = toClaudeMessages(history);
   let finalText = '';
 
@@ -112,7 +126,7 @@ async function handleClienteMessage({ cliente, phone, text }) {
 
   if (isMsgCurta(text)) await delay(15000); else await delay(5000);
 
-  const history = await Message.listByConversation(conv.id);
+  const history = await Message.listRecent(conv.id, 20);
   let messages = toClaudeMessages(history);
   const system = buildReceptionPrompt(cliente);
 

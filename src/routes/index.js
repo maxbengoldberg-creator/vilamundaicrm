@@ -41,6 +41,8 @@ api.get('/clientes', clientes.listClientes);
 api.patch('/clientes/:id', clientes.updateCliente);
 api.delete('/clientes/:id', clientes.deleteCliente);
 api.post('/clientes/:id/boas-vindas', clientes.enviarBoasVindas);
+api.get("/robot/status", clientes.getRobotStatus);
+api.post("/robot/status", clientes.setRobotStatus);
 
 router.use('/api/v1', api);
 

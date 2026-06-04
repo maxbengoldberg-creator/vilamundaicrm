@@ -1,6 +1,7 @@
 import * as Cliente from '../models/cliente.model.js';
 import { hospedin } from '../services/hospedin.service.js';
 import { zapi } from '../services/zapi.service.js';
+import * as Setting from '../models/setting.model.js';
 
 export async function importarChegadas(req, res, next) {
   try {
@@ -53,5 +54,22 @@ export async function enviarBoasVindas(req, res, next) {
     await zapi.sendText(cliente.phone, msg);
     await Cliente.update(cliente.id, { boas_vindas_enviada: true });
     res.json({ ok: true, mensagem: msg });
+  } catch (e) { next(e); }
+}
+
+// ===== INTERRUPTOR GERAL DO ROBÔ =====
+
+export async function getRobotStatus(req, res, next) {
+  try {
+    const on = await Setting.get('robot_enabled', true);
+    res.json({ enabled: on !== false });
+  } catch (e) { next(e); }
+}
+
+export async function setRobotStatus(req, res, next) {
+  try {
+    const enabled = req.body.enabled !== false;
+    await Setting.set('robot_enabled', enabled);
+    res.json({ ok: true, enabled });
   } catch (e) { next(e); }
 }

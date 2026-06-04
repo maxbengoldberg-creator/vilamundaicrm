@@ -46,3 +46,7 @@ export async function list({ stage } = {}) {
   const { rows } = await query('SELECT * FROM leads ORDER BY updated_at DESC LIMIT 200');
   return rows;
 }
+
+export async function remove(id) {
+  await query('DELETE FROM leads WHERE id = $1', [id]);
+}

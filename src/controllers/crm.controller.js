@@ -50,3 +50,7 @@ export async function listAutomations(req, res, next) {
 export async function updateAutomation(req, res, next) {
   try { res.json(await Automation.update(req.params.id, req.body)); } catch (e) { next(e); }
 }
+
+export async function deleteLead(req, res, next) {
+  try { await Lead.remove(req.params.id); res.json({ ok: true }); } catch (e) { next(e); }
+}

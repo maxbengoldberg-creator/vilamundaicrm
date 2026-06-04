@@ -26,6 +26,7 @@ api.post('/leads', crm.createLead);
 api.get('/leads/:id', crm.getLead);
 api.patch('/leads/:id', crm.updateLead);
 api.patch('/leads/:id/ai', crm.toggleAI);
+api.delete('/leads/:id', crm.deleteLead);
 
 // Conversas
 api.get('/conversations', crm.listConversations);

@@ -3,22 +3,20 @@ import { requireApiKey } from '../middleware/auth.js';
 import { whatsappWebhook } from '../controllers/webhooks.controller.js';
 import { runAgent, generateAutomation } from '../controllers/agent.controller.js';
 import * as crm from '../controllers/crm.controller.js';
+import * as clientes from '../controllers/clientes.controller.js';
 
 const router = Router();
 
-// Healthcheck (Railway usa para saber se está no ar)
 router.get('/health', (req, res) => res.json({ ok: true, ts: Date.now() }));
 
-// ----- Webhook do WhatsApp (SEM api-key: quem chama é a Z-API) -----
 router.post('/webhooks/whatsapp', whatsappWebhook);
 
-// ----- API administrativa (protegida por x-api-key) -----
 const api = Router();
 api.use(requireApiKey);
 
 // Agente
-api.post('/agent/run', runAgent);                  // dispara o agente manualmente
-api.post('/automations/generate', generateAutomation); // prompt -> fluxo (Claude)
+api.post('/agent/run', runAgent);
+api.post('/automations/generate', generateAutomation);
 
 // Leads
 api.get('/leads', crm.listLeads);
@@ -36,6 +34,13 @@ api.post('/conversations/:id/finish', crm.finishConversation);
 // Automações
 api.get('/automations', crm.listAutomations);
 api.patch('/automations/:id', crm.updateAutomation);
+
+// Clientes (boas-vindas / hóspedes confirmados)
+api.post('/clientes/importar', clientes.importarChegadas);
+api.get('/clientes', clientes.listClientes);
+api.patch('/clientes/:id', clientes.updateCliente);
+api.delete('/clientes/:id', clientes.deleteCliente);
+api.post('/clientes/:id/boas-vindas', clientes.enviarBoasVindas);
 
 router.use('/api/v1', api);
 

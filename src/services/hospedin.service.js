@@ -107,3 +107,69 @@ export const hospedin = {
     }
   },
 };
+
+// ===== BOAS-VINDAS / CHEGADAS =====
+const CANAL_MAP = { 177874: 'Airbnb', 171931: 'Booking.com', 269875: 'Chat IA' };
+
+function extrairTelefone(...textos) {
+  for (const t of textos) {
+    if (!t) continue;
+    const m = String(t).match(/\b(55\d{10,11}|\d{2}9?\d{8})\b/);
+    if (m) {
+      let num = m[1].replace(/\D/g, '');
+      if (!num.startsWith('55')) num = '55' + num;
+      return num;
+    }
+  }
+  return null;
+}
+
+hospedin.chegadas = async function ({ start_date, end_date }) {
+  const h = await authHeaders();
+  const encontrados = [];
+  for (let page = 1; page <= 38; page++) {
+    const { data } = await axios.get(`${BASE}/${ACCOUNT_ID}/reservations`, {
+      headers: h, params: { limit: 20, page },
+    });
+    const lista = data.data || [];
+    if (!lista.length) break;
+    for (const r of lista) {
+      if (r.status !== 'reservation') continue;
+      const ci = r.check_in.slice(0, 10);
+      if (ci < start_date || ci > end_date) continue;
+      encontrados.push(r);
+    }
+    if (data.pagination && page >= data.pagination.last) break;
+  }
+
+  const clientes = [];
+  for (const r of encontrados) {
+    const full = await axios.get(`${BASE}/${ACCOUNT_ID}/reservations/${r.id}`, { headers: h }).then(x => x.data).catch(() => null);
+    if (!full) continue;
+    let nome = 'Hóspede', guestNote = null, guestPhone = null, email = null;
+    if (full.guest_id) {
+      const g = await axios.get(`${BASE}/${ACCOUNT_ID}/guests/${full.guest_id}`, { headers: h }).then(x => x.data).catch(() => null);
+      if (g) { nome = g.name || nome; guestNote = g.note; email = g.email || null; guestPhone = g.phone || null; }
+    }
+    const phone = extrairTelefone(guestPhone, full.note, guestNote);
+    const ci = new Date(full.check_in), co = new Date(full.check_out);
+    const noites = Math.round((co - ci) / (1000*60*60*24));
+    const canal = CANAL_MAP[full.sale_channel_id] || 'Direto';
+    const pt = PLACE_TYPES.find(p => p.id === full.place_type_id);
+    clientes.push({
+      pms_reservation_id: full.id,
+      pms_guest_id: full.guest_id,
+      nome, phone, email, canal,
+      qualificacao: canal === 'Airbnb' ? 'Cliente Airbnb' : canal === 'Booking.com' ? 'Cliente Booking' : 'Cliente Direto',
+      check_in: full.check_in.slice(0,10),
+      check_out: full.check_out.slice(0,10),
+      noites,
+      pessoas: (full.adults || 0) + (full.children || 0),
+      receita_cents: full.total_amount || full.total_daily_cents || 0,
+      acomodacao: pt ? pt.nome : null,
+      status_reserva: full.status,
+      note: full.note || null,
+    });
+  }
+  return clientes;
+};

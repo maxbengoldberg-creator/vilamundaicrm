@@ -10,6 +10,15 @@ async function migrate() {
   console.log('[migrate] aplicando schema...');
   await pool.query(sql);
   console.log('[migrate] concluído com sucesso.');
+
+  try {
+    const sqlClientes = readFileSync(join(__dirname, 'clientes.sql'), 'utf8');
+    await pool.query(sqlClientes);
+    console.log('[migrate] tabela clientes aplicada.');
+  } catch (e) {
+    console.error('[migrate] erro ao aplicar clientes.sql:', e.message);
+  }
+
   await pool.end();
 }
 

@@ -166,7 +166,7 @@ export async function getByStage(stage) {
 
 export async function update(stage, patch) {
   const allowed = ['nome', 'descricao', 'prompt_body', 'trigger_conditions', 'enabled', 'model'];
-  const keys = Object.keys(patch).filter(k => allowed.includes(k));
+  const keys = Object.keys(patch).filter(k => allowed.includes(k) && patch[k] != null);
   if (keys.length === 0) return getByStage(stage);
   const sets = keys.map((k, i) => `${k} = $${i + 2}`);
   const vals = keys.map(k => patch[k]);

@@ -165,7 +165,7 @@ export async function getByStage(stage) {
 }
 
 export async function update(stage, patch) {
-  const allowed = ['nome', 'descricao', 'prompt_body', 'trigger_conditions', 'enabled'];
+  const allowed = ['nome', 'descricao', 'prompt_body', 'trigger_conditions', 'enabled', 'model'];
   const keys = Object.keys(patch).filter(k => allowed.includes(k));
   if (keys.length === 0) return getByStage(stage);
   const sets = keys.map((k, i) => `${k} = $${i + 2}`);
@@ -190,10 +190,13 @@ export async function seedIfEmpty() {
       prompt_body        TEXT NOT NULL DEFAULT '',
       trigger_conditions JSONB DEFAULT '{}',
       enabled            BOOLEAN DEFAULT TRUE,
+      model              TEXT DEFAULT 'claude-sonnet-4-6',
       created_at         TIMESTAMPTZ DEFAULT now(),
       updated_at         TIMESTAMPTZ DEFAULT now()
     )
   `);
+  // Adiciona a coluna em instalações que já existiam sem ela
+  await query(`ALTER TABLE automations_stages ADD COLUMN IF NOT EXISTS model TEXT DEFAULT 'claude-sonnet-4-6'`);
 
   for (const s of SEEDS) {
     await query(

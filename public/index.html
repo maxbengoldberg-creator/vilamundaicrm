@@ -653,25 +653,46 @@ async function vAutomations(){
   </div></div>`;
 }
 
+const STAGE_MODELS=['claude-sonnet-4-6','claude-opus-4-8','claude-haiku-4-5'];
 function stageCard(s){
   const cor=STAGE_COR[s.stage]||'#4f8ff7';
   const ic=STAGE_IC[s.stage]||'ti-robot';
-  return `<div class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+  const cur=s.model||'claude-sonnet-4-6';
+  const opts=STAGE_MODELS.map(m=>`<option ${m===cur?'selected':''}>${m}</option>`).join('');
+  return `<div class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:11px">
     <div style="display:flex;align-items:center;gap:11px">
-      <div style="width:38px;height:38px;border-radius:10px;background:${cor}22;display:grid;place-items:center;flex-shrink:0">
-        <i class="ti ${ic}" style="font-size:19px;color:${cor}"></i>
+      <div style="width:36px;height:36px;border-radius:10px;background:${cor}22;display:grid;place-items:center;flex-shrink:0">
+        <i class="ti ${ic}" style="font-size:18px;color:${cor}"></i>
       </div>
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:700;color:#fff">${s.nome}</div>
-        <div style="font-size:12px;color:var(--txt-2);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.descricao||''}</div>
+        <div style="font-size:11.5px;color:var(--txt-2);margin-top:1px">${s.descricao||''}</div>
       </div>
-      <span class="tag ${s.enabled?'green':'amber'} dot" style="flex-shrink:0">${s.enabled?'Ativo':'Pausado'}</span>
     </div>
-    <div style="font-size:11.5px;color:var(--txt-3);background:var(--bg-2);border-radius:7px;padding:9px 11px;line-height:1.5;white-space:pre-wrap;max-height:72px;overflow:hidden">${(s.prompt_body||'').slice(0,200)}…</div>
-    <button class="btn ghost" style="width:100%;justify-content:center" onclick='editarStage(${JSON.stringify(s).replace(/'/g,"&#39;")})'>
-      <i class="ti ti-pencil"></i> Editar prompt
-    </button>
+    <div style="font-size:11px;color:var(--txt-3);background:var(--bg-2);border-radius:7px;padding:8px 11px;line-height:1.5;max-height:60px;overflow:hidden;white-space:pre-wrap">${(s.prompt_body||'').slice(0,160)}…</div>
+    <div style="display:flex;align-items:center;gap:9px">
+      <span class="switch ${s.enabled?'':'off'}" id="sw-${s.stage}" onclick="this.classList.toggle('off')"></span>
+      <span style="font-size:12px;color:var(--txt-2)">Ativo</span>
+    </div>
+    <div class="fld" style="margin:0">
+      <label style="font-size:11px;margin-bottom:5px;display:block;color:var(--txt-2)">Modelo Claude</label>
+      <select id="mdl-${s.stage}" style="height:36px;width:100%">${opts}</select>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn blue-s" style="flex:1;justify-content:center" onclick="salvarStageCard('${s.stage}')"><i class="ti ti-device-floppy"></i> Salvar</button>
+      <button class="btn ghost" style="flex-shrink:0" onclick='editarStage(${JSON.stringify(s).replace(/'/g,"&#39;")})'>
+        <i class="ti ti-pencil"></i> Prompt
+      </button>
+    </div>
   </div>`;
+}
+async function salvarStageCard(stage){
+  const enabled=!document.getElementById(`sw-${stage}`)?.classList.contains('off');
+  const model=document.getElementById(`mdl-${stage}`)?.value;
+  try{
+    await PATCH(`/api/v1/automations/stages/${stage}`,{enabled,model});
+    toast(`${stage}: salvo`);
+  }catch(e){toast('Erro: '+e.message,false)}
 }
 
 function editarStage(s){
@@ -829,45 +850,53 @@ async function sendMsg(leadId,convId){
 const NODE_META={trigger:{cls:'n-trigger',ic:'ti-player-play',k:'Gatilho'},ia:{cls:'n-ia',ic:'ti-robot',k:'Agente IA'},msg:{cls:'n-msg',ic:'ti-message-2',k:'Mensagem'},cond:{cls:'n-cond',ic:'ti-arrows-split',k:'Condição'},acao:{cls:'n-acao',ic:'ti-bolt',k:'Ação'},pms:{cls:'n-pms',ic:'ti-database-search',k:'PMS'},extrai:{cls:'n-extrai',ic:'ti-forms',k:'Extração IA'},fim:{cls:'n-fim',ic:'ti-flag',k:'Fim'}};
 
 async function vAgente(){
+  const [robot,stages]=await Promise.all([
+    GET('/api/v1/robot/status').catch(()=>({enabled:true})),
+    GET('/api/v1/automations/stages').catch(()=>[]),
+  ]);
+  const on=robot.enabled!==false;
   document.getElementById('main').innerHTML=`<div class="view active">
-  <div class="head"><div><h1>Agente IA</h1><div class="sub">Descreva o objetivo — a Claude cria a automação</div></div></div>
+  <div class="head"><div><h1>Agente IA</h1><div class="sub">Status e configuração do robô</div></div></div>
   <div class="pad">
-    <div style="display:grid;grid-template-columns:1fr 360px;gap:18px">
-      <div>
-        <div style="background:linear-gradient(150deg,#172a4d,#101824);border:1px solid #25406b;border-radius:14px;padding:20px;margin-bottom:18px">
-          <div style="display:flex;align-items:center;gap:9px;margin-bottom:5px">
-            <div style="width:30px;height:30px;border-radius:9px;background:var(--purple);display:grid;place-items:center;color:#fff;font-size:17px"><i class="ti ti-sparkles"></i></div>
-            <b style="font-size:15px;color:#fff">Construtor por prompt</b>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:860px">
+      <div class="card cpad">
+        <h2 style="font-size:16px;margin-bottom:14px">Interruptor geral</h2>
+        <div style="display:flex;align-items:center;gap:13px;padding:16px;background:${on?'var(--green-soft)':'var(--red-soft)'};border:1px solid ${on?'#1c4133':'#3d1c1c'};border-radius:10px;margin-bottom:14px">
+          <i class="ti ti-robot" style="font-size:28px;color:${on?'var(--green)':'var(--red)'}"></i>
+          <div style="flex:1">
+            <b style="color:#fff;display:block;font-size:14px">${on?'Robô ativo':'Robô desligado'}</b>
+            <span style="font-size:12px;color:var(--txt-2)">${on?'Respondendo todos os leads automaticamente':'Não responde ninguém'}</span>
           </div>
-          <p style="font-size:12.5px;color:#9db4d6;line-height:1.55;margin-bottom:14px">Descreva o que o agente deve fazer com o lead. A Claude escreve o fluxo de automação completo.</p>
-          <div style="background:rgba(0,0,0,.3);border:1px solid #2a456e;border-radius:10px;padding:13px">
-            <textarea id="bldPrompt" style="width:100%;background:none;border:none;color:#fff;font-size:13.5px;resize:none;min-height:100px;line-height:1.55" placeholder="Ex: Quando o lead pedir valores, extraia as datas, consulte o PMS, envie a cotação com fotos. Se o valor passar de R$ 5.000, passe para um atendente humano."></textarea>
-          </div>
-          <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
-            <button class="pp-gen" onclick="gerarFluxo()" style="flex:1;max-width:200px"><i class="ti ti-bolt"></i> Gerar automação</button>
-            <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:#9db4d6"><input type="checkbox" id="salvarAuto"> Salvar no CRM</label>
-          </div>
-          <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:12px">
-            ${['Qualificar e taguear o lead','Cotar consultando o PMS','Reativar lead frio após 48h','Fechar com contrato e pagamento'].map(c=>`<span style="font-size:11px;background:rgba(255,255,255,.06);border:1px solid #2a456e;color:#9db4d6;border-radius:20px;padding:5px 10px;cursor:pointer" onclick="document.getElementById('bldPrompt').value=this.textContent">${c}</span>`).join('')}
-          </div>
+          <span class="switch ${on?'':'off'}" onclick="toggleRobotAgente(this)"></span>
         </div>
-        <div class="gen-status" id="genStatus"><span class="sp"></span> Claude está escrevendo a automação…</div>
-        <div class="flow" id="flowCanvas"></div>
+        <p style="font-size:12px;color:var(--txt-3);line-height:1.65">O interruptor geral pausa TODOS os leads de uma vez. Para pausar um lead específico, use os badges IA/Humano no Kanban.</p>
       </div>
-      <div>
-        <div class="card cpad" style="margin-bottom:14px">
-          <h2 style="font-size:15px;margin-bottom:12px">Personalidade do agente</h2>
-          <div class="fld"><label>Modelo</label><select><option>claude-opus-4-8</option><option>claude-sonnet-4-6</option><option>claude-haiku-4-5</option></select></div>
-          <div class="fld"><label>Tom de voz</label><select><option>Acolhedor e caloroso</option><option>Formal e objetivo</option><option>Descontraído</option></select></div>
-          <button class="btn blue" style="width:100%;justify-content:center" onclick="toast('Configurações salvas')"><i class="ti ti-device-floppy"></i> Salvar</button>
-        </div>
-        <div class="card cpad" style="background:var(--surf-2)">
-          <h2 style="font-size:15px;margin-bottom:10px">Habilidades ativas</h2>
-          ${[['ti-brand-whatsapp','Responder no WhatsApp','var(--wa)'],['ti-database-search','Consultar PMS','var(--teal)'],['ti-cash','Cotar e negociar','var(--amber)'],['ti-file-text','Gerar contrato','var(--purple)'],['ti-link','Link de pagamento','var(--blue)'],['ti-target-arrow','Qualificar lead','var(--green)']].map(s=>`<div style="display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--line)"><i class="ti ${s[0]}" style="font-size:18px;color:${s[2]}"></i><span style="flex:1;font-size:12.5px">${s[1]}</span><span class="switch" onclick="this.classList.toggle('off')"></span></div>`).join('')}
-        </div>
+      <div class="card cpad">
+        <h2 style="font-size:16px;margin-bottom:14px">Modelo por etapa</h2>
+        ${STAGE_ORDER.map(id=>{
+          const s=stages.find(x=>x.stage===id);
+          if(!s)return'';
+          const cor=STAGE_COR[id]||'#4f8ff7';
+          const mdl=(s.model||'claude-sonnet-4-6').replace('claude-','');
+          return `<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--line)">
+            <i class="ti ${STAGE_IC[id]||'ti-robot'}" style="font-size:14px;color:${cor}"></i>
+            <span style="flex:1;font-size:12.5px">${s.nome}</span>
+            <span class="tag ${s.enabled?'green':'amber'} dot" style="font-size:10px">${s.enabled?'ativo':'pausado'}</span>
+            <code style="font-size:10px;color:var(--teal);background:var(--bg-2);padding:2px 8px;border-radius:5px">${mdl}</code>
+          </div>`;
+        }).join('')}
       </div>
     </div>
   </div></div>`;
+}
+async function toggleRobotAgente(el){
+  const novo=el.classList.contains('off');
+  el.classList.toggle('off');
+  try{
+    await POST('/api/v1/robot/status',{enabled:novo});
+    toast(novo?'Robô ativado':'Robô desligado');
+    await vAgente();
+  }catch(e){toast('Erro ao alterar',false);el.classList.toggle('off')}
 }
 
 async function gerarFluxo(){

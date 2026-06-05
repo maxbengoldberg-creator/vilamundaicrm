@@ -5,14 +5,14 @@
 import * as AutomationStage from '../models/automation_stage.model.js';
 
 const CACHE_TTL = 60_000;
-let _cache = null;
+let _cache = null; // { [stage]: stageRow }
 let _cacheTs = 0;
 
-async function getPromptMap() {
+async function getStageMap() {
   if (_cache && Date.now() - _cacheTs < CACHE_TTL) return _cache;
   try {
     const rows = await AutomationStage.list();
-    _cache = Object.fromEntries(rows.map(r => [r.stage, r.prompt_body]));
+    _cache = Object.fromEntries(rows.map(r => [r.stage, r]));
     _cacheTs = Date.now();
     return _cache;
   } catch (err) {
@@ -37,9 +37,14 @@ function interpolate(template, lead) {
 }
 
 export async function buildStagePrompt(lead) {
-  const prompts = await getPromptMap();
-  const template = prompts[lead.stage] || prompts['qualif'] || '';
-  return interpolate(template, lead);
+  const map = await getStageMap();
+  const entry = map[lead.stage] || map['qualif'] || {};
+  return interpolate(entry.prompt_body || '', lead);
+}
+
+export async function getStageModel(stage) {
+  const map = await getStageMap();
+  return map[stage]?.model || 'claude-sonnet-4-6';
 }
 
 // Invalida o cache imediatamente (chamado após PATCH de um prompt).

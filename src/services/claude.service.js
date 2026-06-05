@@ -8,9 +8,9 @@ export async function buildSystemPrompt(lead) {
   return buildStagePrompt(lead);
 }
 
-export async function callClaude({ system, messages, tools }) {
+export async function callClaude({ system, messages, tools, model }) {
   const resp = await anthropic.messages.create({
-    model: env.anthropic.model,
+    model: model || env.anthropic.model,
     max_tokens: env.anthropic.maxTokens,
     system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
     tools,

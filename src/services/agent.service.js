@@ -1,4 +1,5 @@
 import { callClaude, buildSystemPrompt } from './claude.service.js';
+import { getStageModel } from './stage.prompts.js';
 import { buildReceptionPrompt } from './reception.prompt.js';
 import { TOOLS } from '../tools/index.js';
 import { HANDLERS } from '../tools/handlers.js';
@@ -106,9 +107,12 @@ export async function handleIncoming({ phone, text, pushName }) {
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     lead = await Lead.findByPhone(phone);
     const effectiveStage = await resolveEffectiveStage(lead);
-    const system = await buildSystemPrompt({ ...lead, stage: effectiveStage });
-    console.log(`[agente] lead ${phone} stage=${lead.stage} prompt=${effectiveStage}`);
-    const resp = await callClaude({ system, messages, tools: TOOLS });
+    const [system, model] = await Promise.all([
+      buildSystemPrompt({ ...lead, stage: effectiveStage }),
+      getStageModel(effectiveStage),
+    ]);
+    console.log(`[agente] lead ${phone} stage=${lead.stage} prompt=${effectiveStage} model=${model}`);
+    const resp = await callClaude({ system, messages, tools: TOOLS, model });
 
     const assistantMsg = { role: 'assistant', content: resp.content };
     messages.push(assistantMsg);

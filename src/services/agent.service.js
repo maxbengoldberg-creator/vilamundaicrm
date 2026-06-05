@@ -54,15 +54,63 @@ function toClaudeMessages(rows) {
     if (r.raw) msgs.push(r.raw);
     else if (r.role === 'user' || r.role === 'assistant') msgs.push({ role: r.role, content: r.content });
   }
-  // Remove tool_results orfaos no inicio da janela (evita erro 400 da API)
-  while (msgs.length) {
-    const m = msgs[0];
-    const hasToolResult = Array.isArray(m.content) && m.content.some(b => b && b.type === 'tool_result');
-    if (m.role === 'user' && hasToolResult) msgs.shift();
-    else break;
+
+  // Remove órfãos iterativamente até estabilizar.
+  // O bug original: os dois while separados rodavam uma vez cada — o segundo
+  // removia um assistant:tool_use do início, expondo um user:tool_result que o
+  // primeiro while já não ia mais remover.
+  let stable = false;
+  while (!stable) {
+    stable = true;
+
+    // 1. Remove leading non-user
+    while (msgs.length && msgs[0].role !== 'user') {
+      msgs.shift();
+      stable = false;
+    }
+
+    // 2. Remove leading user:tool_result (sem assistant:tool_use precedente)
+    while (msgs.length) {
+      const first = msgs[0];
+      const hasToolResult = Array.isArray(first.content) && first.content.some(b => b?.type === 'tool_result');
+      if (first.role === 'user' && hasToolResult) {
+        console.log('[toClaudeMessages] tool_result orfao no inicio da janela, removendo');
+        msgs.shift();
+        stable = false;
+      } else {
+        break;
+      }
+    }
+
+    // 3. Varredura completa: tool_result cujo tool_use_id não existe no assistant anterior
+    for (let i = 0; i < msgs.length; i++) {
+      const msg = msgs[i];
+      if (msg.role !== 'user' || !Array.isArray(msg.content)) continue;
+      const toolResults = msg.content.filter(b => b?.type === 'tool_result');
+      if (toolResults.length === 0) continue;
+
+      const prev = msgs[i - 1];
+      const prevToolUseIds = new Set(
+        (prev?.role === 'assistant' && Array.isArray(prev.content) ? prev.content : [])
+          .filter(b => b?.type === 'tool_use').map(b => b.id)
+      );
+      const orphans = toolResults.filter(b => !prevToolUseIds.has(b.tool_use_id));
+
+      if (orphans.length > 0) {
+        const ids = orphans.map(b => b.tool_use_id).join(', ');
+        if (prev?.role === 'assistant') {
+          console.log(`[toClaudeMessages] par orfao tool_use/tool_result ids=[${ids}], removendo posicoes ${i - 1} e ${i}`);
+          msgs.splice(i - 1, 2);
+        } else {
+          console.log(`[toClaudeMessages] tool_result orfao ids=[${ids}] sem assistant anterior, removendo posicao ${i}`);
+          msgs.splice(i, 1);
+        }
+        stable = false;
+        break; // reinicia a varredura
+      }
+    }
   }
-  // A janela deve comecar por mensagem do usuario
-  while (msgs.length && msgs[0].role !== 'user') msgs.shift();
+
   return msgs;
 }
 

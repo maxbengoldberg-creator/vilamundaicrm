@@ -3,6 +3,19 @@ import { zapi } from '../services/zapi.service.js';
 import * as Lead from '../models/lead.model.js';
 import * as Reservation from '../models/reservation.model.js';
 
+// Sequência oficial do funil. O robô só pode avançar para a etapa imediatamente seguinte.
+const STAGE_ORDER = ['qualif', 'apres', 'quente', 'negociacao', 'contrato', 'pagamento', 'ganho'];
+
+// De morno, o lead volta para negociacao (etapa após quente).
+const MORNO_NEXT = 'negociacao';
+
+function nextStage(current) {
+  if (current === 'morno') return MORNO_NEXT;
+  const idx = STAGE_ORDER.indexOf(current);
+  if (idx === -1 || idx === STAGE_ORDER.length - 1) return null;
+  return STAGE_ORDER[idx + 1];
+}
+
 // ==========================================================
 //  Executores das ferramentas. Cada handler recebe:
 //    (input, ctx)  onde ctx = { lead, phone }
@@ -48,6 +61,13 @@ export const HANDLERS = {
   },
 
   async mover_funil(input, ctx) {
+    const allowed = nextStage(ctx.lead.stage);
+    if (input.stage !== allowed) {
+      return {
+        ok: false,
+        erro: `Avanço bloqueado: de "${ctx.lead.stage}" o próximo permitido é "${allowed}", não "${input.stage}". O robô só avança uma etapa por vez.`,
+      };
+    }
     await Lead.update(ctx.lead.id, { stage: input.stage });
     return { ok: true, stage: input.stage };
   },
@@ -93,7 +113,6 @@ export const HANDLERS = {
         status: r.status,
         payload: r.raw,
       });
-      await Lead.update(ctx.lead.id, { stage: 'reserva' });
     }
     return r;
   },

@@ -64,13 +64,13 @@ export const TOOLS = [
   },
   {
     name: 'mover_funil',
-    description: 'Move o lead para outra etapa do funil.',
+    description: 'Avança o lead para a próxima etapa do funil. O robô só pode avançar UMA etapa por vez — nunca pular. Sequência: qualif → apres → quente → negociacao → contrato → pagamento → ganho. De morno, avança para negociacao.',
     input_schema: {
       type: 'object',
       properties: {
         stage: {
           type: 'string',
-          enum: ['qualif', 'apres', 'quente', 'reserva', 'ganho', 'perdido'],
+          enum: ['qualif', 'apres', 'quente', 'negociacao', 'contrato', 'pagamento', 'ganho', 'morno'],
         },
       },
       required: ['stage'],

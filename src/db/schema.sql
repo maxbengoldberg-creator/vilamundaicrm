@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS leads (
   phone         TEXT UNIQUE NOT NULL,         -- E.164 sem "+", ex: 5573999990000
   email         TEXT,
   origem        TEXT DEFAULT 'whatsapp',
-  stage         TEXT DEFAULT 'qualif',        -- qualif | apres | quente | reserva | ganho | perdido
+  stage         TEXT DEFAULT 'qualif',        -- qualif → apres → quente → negociacao → contrato → pagamento → ganho | desvio: morno | perdido
   qual_score    INT  DEFAULT 0,               -- 0..100
   tags          TEXT[] DEFAULT '{}',
   -- dados extraídos pela IA da conversa:

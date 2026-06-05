@@ -12,7 +12,7 @@ export async function create({ conversation_id, role, content = null, raw = null
 // Retorna o histórico em ordem cronológica (para reconstruir o contexto).
 export async function listByConversation(conversation_id) {
   const { rows } = await query(
-    `SELECT role, content, raw, sender FROM messages
+    `SELECT role, content, raw, sender, created_at FROM messages
       WHERE conversation_id = $1 ORDER BY created_at ASC, id ASC`,
     [conversation_id]
   );

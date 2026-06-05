@@ -2,6 +2,8 @@ import * as Lead from '../models/lead.model.js';
 import * as Conversation from '../models/conversation.model.js';
 import * as Message from '../models/message.model.js';
 import * as Automation from '../models/automation.model.js';
+import { zapi } from '../services/zapi.service.js';
+import { query } from '../config/db.js';
 
 /* ---- LEADS ---- */
 export async function listLeads(req, res, next) {
@@ -34,6 +36,26 @@ export async function getConversationMessages(req, res, next) {
 }
 export async function finishConversation(req, res, next) {
   try { await Conversation.finish(req.params.id); res.json({ ok: true }); } catch (e) { next(e); }
+}
+
+// Envio manual pelo atendente humano — salva no histórico e envia via Z-API.
+// Não passa pelo agente nem verifica robot_enabled.
+export async function sendManual(req, res, next) {
+  try {
+    const { text } = req.body;
+    const convId = req.params.id;
+    if (!text?.trim()) return res.status(400).json({ error: 'text é obrigatório' });
+
+    const { rows } = await query('SELECT * FROM conversations WHERE id = $1', [convId]);
+    const conv = rows[0];
+    if (!conv) return res.status(404).json({ error: 'conversa não encontrada' });
+
+    await Message.create({ conversation_id: convId, role: 'assistant', content: text, sender: 'humano' });
+    await Conversation.touch(convId, text);
+    await zapi.sendText(conv.phone, text);
+
+    res.json({ ok: true });
+  } catch (e) { next(e); }
 }
 // Pausar/retomar a IA num lead (toggle manual da régua/atendimento humano).
 export async function toggleAI(req, res, next) {

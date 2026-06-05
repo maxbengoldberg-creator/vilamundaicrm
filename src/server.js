@@ -5,6 +5,7 @@ import { dirname, join } from 'path';
 import { env } from './config/env.js';
 import routes from './routes/index.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
+import { mornoJob } from './jobs/morno.job.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -22,4 +23,9 @@ app.use(errorHandler);
 app.listen(env.port, () => {
   console.log(`[server] Vila Mundaí CRM rodando na porta ${env.port}`);
   console.log(`[server] modelo Claude: ${env.anthropic.model}`);
+
+  // Job de morno: roda imediatamente e depois a cada 1 hora
+  mornoJob();
+  setInterval(mornoJob, 60 * 60 * 1000);
+  console.log('[server] morno.job registrado (intervalo: 1h)');
 });

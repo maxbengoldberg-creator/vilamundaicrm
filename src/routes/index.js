@@ -29,6 +29,7 @@ api.delete('/leads/:id', crm.deleteLead);
 // Conversas
 api.get('/conversations', crm.listConversations);
 api.get('/conversations/:id/messages', crm.getConversationMessages);
+api.post('/conversations/:id/send', crm.sendManual);
 api.post('/conversations/:id/finish', crm.finishConversation);
 
 // Automações

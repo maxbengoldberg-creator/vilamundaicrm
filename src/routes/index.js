@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireApiKey } from '../middleware/auth.js';
-import { whatsappWebhook } from '../controllers/webhooks.controller.js';
+import { whatsappWebhook, metaLeadsWebhook } from '../controllers/webhooks.controller.js';
 import { runAgent, generateAutomation } from '../controllers/agent.controller.js';
 import * as crm from '../controllers/crm.controller.js';
 import * as clientes from '../controllers/clientes.controller.js';
@@ -11,6 +11,7 @@ const router = Router();
 router.get('/health', (req, res) => res.json({ ok: true, ts: Date.now() }));
 
 router.post('/webhooks/whatsapp', whatsappWebhook);
+router.post('/webhooks/meta-leads', metaLeadsWebhook);
 
 const api = Router();
 api.use(requireApiKey);

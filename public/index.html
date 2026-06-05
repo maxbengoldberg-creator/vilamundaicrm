@@ -439,6 +439,7 @@ async function vDashboard(){
   const open=leads.filter(l=>l.stage!=='ganho');
   const vWon=won.reduce((a,l)=>a+Number(l.valor_cotado||0),0);
   const vOpen=open.reduce((a,l)=>a+Number(l.valor_cotado||0),0);
+  const custoTotal=leads.reduce((a,l)=>a+Number(l.total_custo_brl||0),0);
   document.getElementById('main').innerHTML=`<div class="view active">
   <div class="head"><div><h1>Dashboard</h1><div class="sub">Desempenho da Vila Mundaí</div></div>
     <div class="right"><button class="btn blue" onclick="go('agente')"><i class="ti ti-sparkles"></i> Pedir à IA</button></div></div>
@@ -447,7 +448,7 @@ async function vDashboard(){
       ${kpiH('Total de leads','ti-users',total+' contatos',brl(vWon+vOpen),'#4f8ff7')}
       ${kpiH('Ganhos','ti-trending-up',won.length+' reservas',brl(vWon),'#34d399')}
       ${kpiH('Em aberto','ti-activity',open.length+' leads',brl(vOpen),'#fbbf24')}
-      ${kpiH('Taxa de conversão','ti-target-arrow',total?Math.round(won.length/total*100)+'%':'0%','Meta: 30%','#9b87f5')}
+      ${kpiH('Custo IA total','ti-currency-dollar',leads.reduce((a,l)=>a+(l.total_tokens_input||0)+(l.total_tokens_output||0),0).toLocaleString('pt-BR')+' tokens',brl(custoTotal),'#9b87f5')}
     </div>
     <div class="g2" style="margin-bottom:16px">
       <div class="card cpad">
@@ -525,6 +526,7 @@ function bizCard(b){return `<div class="biz" draggable="true" data-id="${b.id}" 
     <span style="display:flex;align-items:center;gap:4px"><i class="ti ti-calendar"></i> ${b.checkin||'—'}</span>
     <span style="display:flex;align-items:center;gap:6px">
       ${b.valor_cotado?`<b style="color:#34d399;font-weight:700">${brl(b.valor_cotado)}</b>`:''}
+      ${b.total_custo_brl&&Number(b.total_custo_brl)>0?`<span style="font-size:9.5px;color:#34d399;opacity:.7" title="Custo IA acumulado">R$${Number(b.total_custo_brl).toFixed(2)}</span>`:''}
       <button onclick="event.stopPropagation();abrirPromptLead(${b.id},'${b.phone}')" title="Enviar instrução ao agente" style="background:rgba(79,143,247,.15);border:1px solid rgba(79,143,247,.35);border-radius:5px;color:#7fb0ff;font-size:10px;font-weight:700;padding:2px 7px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:3px"><i class="ti ti-terminal-2" style="font-size:12px"></i>Prompt</button>
     </span>
   </div>
@@ -616,7 +618,7 @@ async function vLeads(){
   <div class="pad">
     <div class="tbl-card">
       <table class="tbl">
-        <thead><tr><th>Lead</th><th>WhatsApp</th><th>Etapa</th><th>Score</th><th>Atendimento</th><th>Valor</th></tr></thead>
+        <thead><tr><th>Lead</th><th>WhatsApp</th><th>Etapa</th><th>Score</th><th>Atendimento</th><th>Valor</th><th>Custo IA</th></tr></thead>
         <tbody>${leads.map(l=>`<tr onclick="abrirLead(${l.id})">
           <td><div class="ucell"><div class="av" style="background:${avColor(l.nome)}">${initials(l.nome)}</div><div><b>${l.nome||'—'}</b><small>${l.origem||'—'}</small></div></div></td>
           <td style="color:var(--txt-2)"><i class="ti ti-brand-whatsapp" style="color:var(--wa)"></i> ${l.phone}</td>
@@ -624,7 +626,8 @@ async function vLeads(){
           <td><div style="display:flex;align-items:center;gap:7px"><div style="width:48px;height:5px;background:var(--surf-3);border-radius:20px;overflow:hidden"><div style="height:100%;width:${l.qual_score||0}%;background:${(l.qual_score||0)>70?'var(--green)':(l.qual_score||0)>40?'var(--amber)':'var(--txt-3)'};"></div></div><span style="font-size:11px;color:var(--txt-2)">${l.qual_score||0}%</span></div></td>
           <td>${l.ai_enabled?'<span class="tag purple dot">IA</span>':'<span class="tag amber dot">Humano</span>'}</td>
           <td><b style="color:var(--green)">${l.valor_cotado?brl(l.valor_cotado):'—'}</b></td>
-        </tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--txt-3);padding:40px">Nenhum lead encontrado</td></tr>'}</tbody>
+          <td><span style="color:var(--green);font-size:12px">${Number(l.total_custo_brl||0)>0?'R$ '+Number(l.total_custo_brl).toFixed(2):'—'}</span></td>
+        </tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--txt-3);padding:40px">Nenhum lead encontrado</td></tr>'}</tbody>
       </table>
     </div>
   </div></div>`;

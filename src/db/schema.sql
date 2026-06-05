@@ -17,6 +17,10 @@ CREATE TABLE IF NOT EXISTS leads (
   guests        INT,
   acomodacao    TEXT,
   valor_cotado  NUMERIC(12,2),
+  -- rastreamento de custo IA por lead:
+  total_tokens_input  INTEGER     DEFAULT 0,
+  total_tokens_output INTEGER     DEFAULT 0,
+  total_custo_brl     NUMERIC(10,4) DEFAULT 0,
   -- controle de atendimento:
   ai_enabled    BOOLEAN DEFAULT TRUE,         -- false = humano assumiu
   assigned_to   TEXT,                         -- id/nome do atendente humano

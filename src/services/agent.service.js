@@ -112,7 +112,7 @@ export async function handleIncoming({ phone, text, pushName }) {
       getStageModel(effectiveStage),
     ]);
     console.log(`[agente] lead ${phone} stage=${lead.stage} prompt=${effectiveStage} model=${model}`);
-    const resp = await callClaude({ system, messages, tools: TOOLS, model });
+    const resp = await callClaude({ system, messages, tools: TOOLS, model, lead_id: lead.id });
 
     const assistantMsg = { role: 'assistant', content: resp.content };
     messages.push(assistantMsg);

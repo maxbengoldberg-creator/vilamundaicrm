@@ -7,6 +7,7 @@ import routes from './routes/index.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { mornoJob } from './jobs/morno.job.js';
 import { seedIfEmpty } from './models/automation_stage.model.js';
+import { query } from './config/db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -27,6 +28,13 @@ app.listen(env.port, () => {
 
   // Garante tabela e seed de prompts por etapa
   seedIfEmpty().catch(err => console.error('[server] seed stages falhou:', err.message));
+
+  // Adiciona colunas de rastreamento de custo (idempotente)
+  Promise.all([
+    query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS total_tokens_input  INTEGER     DEFAULT 0`),
+    query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS total_tokens_output INTEGER     DEFAULT 0`),
+    query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS total_custo_brl     NUMERIC(10,4) DEFAULT 0`),
+  ]).catch(err => console.error('[server] migrate custo falhou:', err.message));
 
   // Job de morno: roda imediatamente e depois a cada 1 hora
   mornoJob();

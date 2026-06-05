@@ -8,8 +8,33 @@ import * as Cliente from '../models/cliente.model.js';
 import * as Setting from '../models/setting.model.js';
 import * as Conversation from '../models/conversation.model.js';
 import * as Message from '../models/message.model.js';
+import * as AutomationStage from '../models/automation_stage.model.js';
 
 const MAX_TOOL_ROUNDS = 6;
+
+// Resolve qual stage de prompt realmente usar, aplicando condicionais por tag.
+// Item 1: tag "ganho" auto-corrige o stage no banco se necessário.
+// Item 3: blocked_tags da etapa atual desviam para "ganho".
+async function resolveEffectiveStage(lead) {
+  const tags = Array.isArray(lead.tags) ? lead.tags : [];
+
+  if (tags.includes('ganho') && lead.stage !== 'ganho') {
+    await Lead.update(lead.id, { stage: 'ganho' });
+    return 'ganho';
+  }
+
+  try {
+    const stageData = await AutomationStage.getByStage(lead.stage);
+    const blocked = stageData?.trigger_conditions?.blocked_tags || [];
+    if (blocked.length > 0 && blocked.some(t => tags.includes(t))) {
+      return 'ganho';
+    }
+  } catch {
+    // Se o banco falhar, segue com o stage atual sem bloquear o atendimento
+  }
+
+  return lead.stage;
+}
 
 const ABERTURA = `Boa tarde,
 
@@ -80,7 +105,9 @@ export async function handleIncoming({ phone, text, pushName }) {
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     lead = await Lead.findByPhone(phone);
-    const system = await buildSystemPrompt(lead);
+    const effectiveStage = await resolveEffectiveStage(lead);
+    const system = await buildSystemPrompt({ ...lead, stage: effectiveStage });
+    console.log(`[agente] lead ${phone} stage=${lead.stage} prompt=${effectiveStage}`);
     const resp = await callClaude({ system, messages, tools: TOOLS });
 
     const assistantMsg = { role: 'assistant', content: resp.content };

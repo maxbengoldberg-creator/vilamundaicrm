@@ -203,5 +203,26 @@ export async function seedIfEmpty() {
       [s.stage, s.nome, s.descricao, s.prompt_body]
     );
   }
+
+  // Popula trigger_conditions apenas onde ainda estão vazias (preserva edições manuais)
+  const TRIGGER_CONDITIONS = {
+    qualif:     { blocked_tags: ['ganho'] },
+    apres:      { blocked_tags: ['ganho'] },
+    quente:     { blocked_tags: ['ganho'] },
+    negociacao: { blocked_tags: ['ganho'] },
+    contrato:   { blocked_tags: ['ganho'] },
+    pagamento:  { blocked_tags: ['ganho'] },
+    ganho:      { required_tags: ['ganho'], blocked_tags: [] },
+    morno:      { blocked_tags: ['ganho'] },
+  };
+  for (const [stage, cond] of Object.entries(TRIGGER_CONDITIONS)) {
+    await query(
+      `UPDATE automations_stages
+          SET trigger_conditions = $1::jsonb, updated_at = now()
+        WHERE stage = $2 AND trigger_conditions = '{}'::jsonb`,
+      [JSON.stringify(cond), stage]
+    );
+  }
+
   console.log('[seed] automations_stages OK');
 }

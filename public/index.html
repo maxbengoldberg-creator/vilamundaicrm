@@ -622,6 +622,9 @@ function stageCard(s){
 }
 
 function editarStage(s){
+  const cond=s.trigger_conditions||{};
+  const blocked=(cond.blocked_tags||[]).join(', ')||'—';
+  const required=(cond.required_tags||[]).join(', ')||'—';
   openModal(`
   <div class="modal-h">
     <div class="ic" style="background:${STAGE_COR[s.stage]||'var(--blue-soft)'};color:#fff;font-size:18px"><i class="ti ${STAGE_IC[s.stage]||'ti-robot'}"></i></div>
@@ -634,10 +637,21 @@ function editarStage(s){
     <div class="fld"><label>Prompt completo (use {{placeholders}} para dados dinâmicos)</label>
       <textarea id="esPrompt" style="height:340px;resize:vertical;font-family:monospace;font-size:12.5px;line-height:1.6;padding:11px 13px;width:100%;background:var(--bg-2);border:1px solid var(--line-2);border-radius:var(--r);color:var(--txt)">${escHtml(s.prompt_body||'')}</textarea>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surf-2);border-radius:9px">
+    <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surf-2);border-radius:9px;margin-bottom:10px">
       <i class="ti ti-robot" style="font-size:18px;color:var(--purple)"></i>
       <span style="flex:1;font-size:12.5px">Etapa ativa (agente usa este prompt)</span>
       <span class="switch ${s.enabled?'':'off'}" id="esEnabled" onclick="this.classList.toggle('off')"></span>
+    </div>
+    <div style="background:var(--bg-2);border:1px solid var(--line);border-radius:9px;padding:11px 14px;font-size:12px;color:var(--txt-2)">
+      <div style="font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);font-weight:700;margin-bottom:7px">Condições de disparo</div>
+      <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--line)">
+        <span>Bloqueado se lead tiver tags</span>
+        <b style="color:${blocked==='—'?'var(--txt-3)':'var(--red)'}">${blocked}</b>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:3px 0">
+        <span>Obrigatório ter tags</span>
+        <b style="color:${required==='—'?'var(--txt-3)':'var(--green)'}">${required}</b>
+      </div>
     </div>
   </div>
   <div class="modal-foot">

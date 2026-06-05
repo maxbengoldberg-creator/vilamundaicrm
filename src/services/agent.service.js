@@ -80,7 +80,7 @@ export async function handleIncoming({ phone, text, pushName }) {
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     lead = await Lead.findByPhone(phone);
-    const system = buildSystemPrompt(lead);
+    const system = await buildSystemPrompt(lead);
     const resp = await callClaude({ system, messages, tools: TOOLS });
 
     const assistantMsg = { role: 'assistant', content: resp.content };

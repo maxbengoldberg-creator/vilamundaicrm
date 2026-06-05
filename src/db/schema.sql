@@ -79,3 +79,16 @@ CREATE TABLE IF NOT EXISTS settings (
   key    TEXT PRIMARY KEY,
   value  JSONB
 );
+
+-- Prompts editáveis por etapa do funil (gerenciados via painel de Automações).
+CREATE TABLE IF NOT EXISTS automations_stages (
+  id                 BIGSERIAL PRIMARY KEY,
+  stage              TEXT UNIQUE NOT NULL,
+  nome               TEXT NOT NULL,
+  descricao          TEXT,
+  prompt_body        TEXT NOT NULL DEFAULT '',
+  trigger_conditions JSONB DEFAULT '{}',
+  enabled            BOOLEAN DEFAULT TRUE,
+  created_at         TIMESTAMPTZ DEFAULT now(),
+  updated_at         TIMESTAMPTZ DEFAULT now()
+);

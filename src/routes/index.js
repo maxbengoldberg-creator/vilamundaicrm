@@ -4,6 +4,7 @@ import { whatsappWebhook } from '../controllers/webhooks.controller.js';
 import { runAgent, generateAutomation } from '../controllers/agent.controller.js';
 import * as crm from '../controllers/crm.controller.js';
 import * as clientes from '../controllers/clientes.controller.js';
+import * as stages from '../controllers/stages.controller.js';
 
 const router = Router();
 
@@ -32,7 +33,11 @@ api.get('/conversations/:id/messages', crm.getConversationMessages);
 api.post('/conversations/:id/send', crm.sendManual);
 api.post('/conversations/:id/finish', crm.finishConversation);
 
-// Automações
+// Automações — prompts por etapa (deve vir antes de /automations/:id)
+api.get('/automations/stages', stages.listStages);
+api.patch('/automations/stages/:stage', stages.updateStage);
+
+// Automações — builder genérico (legado)
 api.get('/automations', crm.listAutomations);
 api.patch('/automations/:id', crm.updateAutomation);
 

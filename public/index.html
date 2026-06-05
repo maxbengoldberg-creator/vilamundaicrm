@@ -578,43 +578,88 @@ async function vLeads(){
 }
 
 /* ============================================================
-   AUTOMAÇÕES
+   AUTOMAÇÕES — Editor de prompts por etapa
    ============================================================ */
+const STAGE_ORDER=['qualif','apres','quente','negociacao','contrato','pagamento','ganho','morno'];
+const STAGE_COR={qualif:'#4f8ff7',apres:'#9b87f5',quente:'#fbbf24',negociacao:'#fb923c',contrato:'#2dd4bf',pagamento:'#a78bfa',ganho:'#34d399',morno:'#64748b'};
+const STAGE_IC={qualif:'ti-user-question',apres:'ti-presentation',quente:'ti-flame',negociacao:'ti-scale',contrato:'ti-file-text',pagamento:'ti-credit-card',ganho:'ti-trophy',morno:'ti-snowflake'};
+
 async function vAutomations(){
-  const autos=await GET('/api/v1/automations').catch(()=>[]);
-  S.autos=autos;
-  document.getElementById('main').innerHTML=`<div class="view active" style="height:100vh">
-  <div class="auto-layout">
-    <div class="auto-side">
-      <div class="ash">
-        <h3 style="font-size:17px;margin-bottom:12px">Automações</h3>
-        <button class="btn blue" style="width:100%;justify-content:center" onclick="go('agente')"><i class="ti ti-plus"></i> Criar com IA</button>
-      </div>
-      <div class="auto-list">
-        ${autos.map(a=>`<div class="al-item" onclick="abrirBuilder(${a.id})">
-          <i class="ti ti-git-fork gi"></i><span class="nm">${a.nome}</span>
-          <i class="ti ti-power pw2 ${a.enabled?'on':'off'}" onclick="event.stopPropagation();toggleAuto(${a.id},${!a.enabled})"></i>
-        </div>`).join('')||'<div style="color:var(--txt-3);font-size:12px;padding:16px">Nenhuma automação</div>'}
-      </div>
+  const stagesRaw=await GET('/api/v1/automations/stages').catch(()=>[]);
+  const byStage=Object.fromEntries(stagesRaw.map(s=>[s.stage,s]));
+  const stgs=STAGE_ORDER.map(id=>byStage[id]).filter(Boolean);
+  document.getElementById('main').innerHTML=`<div class="view active">
+  <div class="head">
+    <div><h1>Automações</h1><div class="sub">Prompts por etapa do funil — edite e salve para aplicar em até 60s</div></div>
+  </div>
+  <div class="pad">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px">
+      ${stgs.map(s=>stageCard(s)).join('')}
     </div>
-    <div class="auto-main">
-      <h1 style="font-size:22px;margin-bottom:4px">Fluxos de automação</h1>
-      <div class="flow-cards">
-        <div class="fc create"><div class="ci"><h3>Criar nova</h3><p>Descreva o objetivo e a Claude monta o fluxo automaticamente.</p>
-          <button class="btn blue" style="margin-top:14px;justify-content:center" onclick="go('agente')"><i class="ti ti-sparkles"></i> Criar com IA</button></div></div>
-        ${autos.map(a=>`<div class="fc"><div class="thumb">${miniFlow(a)}</div>
-          <div class="ttl"><b>${a.nome}</b><p>${a.descricao||''}</p></div>
-          <div class="fa"><button class="open" onclick="abrirBuilder(${a.id})"><i class="ti ti-arrow-right"></i> Abrir</button></div></div>`).join('')}
-      </div>
-    </div>
+    <p style="margin-top:20px;font-size:12px;color:var(--txt-3)">Placeholders disponíveis nos prompts: <code style="color:var(--teal)">{{hoje}}</code> <code style="color:var(--teal)">{{ano}}</code> <code style="color:var(--teal)">{{nome}}</code> <code style="color:var(--teal)">{{checkin}}</code> <code style="color:var(--teal)">{{checkout}}</code> <code style="color:var(--teal)">{{guests}}</code> <code style="color:var(--teal)">{{sinal_30}}</code></p>
   </div></div>`;
 }
-function miniFlow(a){return `<div class="mini-node" style="top:12px;left:12px"><i class="ti ti-player-play" style="color:var(--green);font-size:9px"></i> Início</div>
-  <div class="mini-line" style="top:32px;left:21px;width:2px;height:22px"></div>
-  <div class="mini-node" style="top:54px;left:22px"><i class="ti ti-robot" style="color:var(--purple);font-size:9px"></i> Agente IA</div>
-  <div class="mini-line" style="top:74px;left:32px;width:2px;height:22px"></div>
-  <div class="mini-node" style="top:96px;left:32px"><i class="ti ti-message-2" style="color:var(--blue);font-size:9px"></i> Mensagem</div>`}
-async function toggleAuto(id,enabled){await PATCH(`/api/v1/automations/${id}`,{enabled}).catch(()=>null);toast(enabled?'Automação ativada':'Automação pausada');await vAutomations()}
+
+function stageCard(s){
+  const cor=STAGE_COR[s.stage]||'#4f8ff7';
+  const ic=STAGE_IC[s.stage]||'ti-robot';
+  return `<div class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;align-items:center;gap:11px">
+      <div style="width:38px;height:38px;border-radius:10px;background:${cor}22;display:grid;place-items:center;flex-shrink:0">
+        <i class="ti ${ic}" style="font-size:19px;color:${cor}"></i>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700;color:#fff">${s.nome}</div>
+        <div style="font-size:12px;color:var(--txt-2);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.descricao||''}</div>
+      </div>
+      <span class="tag ${s.enabled?'green':'amber'} dot" style="flex-shrink:0">${s.enabled?'Ativo':'Pausado'}</span>
+    </div>
+    <div style="font-size:11.5px;color:var(--txt-3);background:var(--bg-2);border-radius:7px;padding:9px 11px;line-height:1.5;white-space:pre-wrap;max-height:72px;overflow:hidden">${(s.prompt_body||'').slice(0,200)}…</div>
+    <button class="btn ghost" style="width:100%;justify-content:center" onclick='editarStage(${JSON.stringify(s).replace(/'/g,"&#39;")})'>
+      <i class="ti ti-pencil"></i> Editar prompt
+    </button>
+  </div>`;
+}
+
+function editarStage(s){
+  openModal(`
+  <div class="modal-h">
+    <div class="ic" style="background:${STAGE_COR[s.stage]||'var(--blue-soft)'};color:#fff;font-size:18px"><i class="ti ${STAGE_IC[s.stage]||'ti-robot'}"></i></div>
+    <div><h3>${s.nome}</h3><p>Etapa: ${s.stage}</p></div>
+    <span class="x" onclick="closeModal()"><i class="ti ti-x"></i></span>
+  </div>
+  <div class="modal-b" style="max-width:100%">
+    <div class="fld"><label>Nome da etapa</label><input id="esNome" value="${(s.nome||'').replace(/"/g,'&quot;')}"></div>
+    <div class="fld"><label>Descrição</label><input id="esDesc" value="${(s.descricao||'').replace(/"/g,'&quot;')}"></div>
+    <div class="fld"><label>Prompt completo (use {{placeholders}} para dados dinâmicos)</label>
+      <textarea id="esPrompt" style="height:340px;resize:vertical;font-family:monospace;font-size:12.5px;line-height:1.6;padding:11px 13px;width:100%;background:var(--bg-2);border:1px solid var(--line-2);border-radius:var(--r);color:var(--txt)">${escHtml(s.prompt_body||'')}</textarea>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surf-2);border-radius:9px">
+      <i class="ti ti-robot" style="font-size:18px;color:var(--purple)"></i>
+      <span style="flex:1;font-size:12.5px">Etapa ativa (agente usa este prompt)</span>
+      <span class="switch ${s.enabled?'':'off'}" id="esEnabled" onclick="this.classList.toggle('off')"></span>
+    </div>
+  </div>
+  <div class="modal-foot">
+    <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+    <button class="btn blue-s" onclick="salvarStage('${s.stage}')"><i class="ti ti-device-floppy"></i> Salvar</button>
+  </div>`);
+}
+
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+async function salvarStage(stage){
+  const nome=document.getElementById('esNome')?.value?.trim();
+  const descricao=document.getElementById('esDesc')?.value?.trim();
+  const prompt_body=document.getElementById('esPrompt')?.value;
+  const enabled=!document.getElementById('esEnabled')?.classList.contains('off');
+  if(!prompt_body?.trim()){toast('O prompt não pode estar vazio',false);return}
+  try{
+    await PATCH(`/api/v1/automations/stages/${stage}`,{nome,descricao,prompt_body,enabled});
+    closeModal();toast('Prompt salvo — agente atualiza em até 60s');
+    await vAutomations();
+  }catch(e){toast('Erro ao salvar: '+e.message,false)}
+}
 async function abrirBuilder(id){
   const a=S.autos.find(x=>x.id===id);
   S.bName=a?.nome||'Automação';

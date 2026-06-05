@@ -4,7 +4,7 @@ import { buildStagePrompt } from './stage.prompts.js';
 
 export const anthropic = new Anthropic({ apiKey: env.anthropic.apiKey });
 
-export function buildSystemPrompt(lead) {
+export async function buildSystemPrompt(lead) {
   return buildStagePrompt(lead);
 }
 

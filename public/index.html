@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vila Mundaí CRM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.7.0/tabler-icons.min.css">
+<style>
+:root{
+  --bg:#0a0c0f;--bg-2:#0f1216;--surf:#15191e;--surf-2:#1a1f25;--surf-3:#20262d;
+  --line:#262c34;--line-2:#323a44;--line-3:#3d4651;
+  --txt:#e7eaee;--txt-2:#9aa3ae;--txt-3:#646d78;
+  --blue:#4f8ff7;--blue-2:#3d7de6;--blue-soft:#16243d;--blue-pale:#a9c9ff;
+  --green:#34d399;--green-soft:#10291f;--red:#f87171;--red-soft:#2b1414;
+  --amber:#fbbf24;--amber-soft:#2a2110;--purple:#9b87f5;--purple-soft:#1d1830;
+  --teal:#2dd4bf;--wa:#25d366;
+  --r:8px;--r-lg:12px;--r-xl:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--txt);-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
+h1,h2,h3{font-weight:700;letter-spacing:-.02em;color:#fff;line-height:1.2}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font-family:inherit;font-size:14px;color:var(--txt)}
+::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:20px}
+::placeholder{color:var(--txt-3)}
+
+/* LOGIN */
+#login{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 30% 20%,#11233f,transparent 55%),radial-gradient(circle at 80% 80%,#0d1f1a,transparent 55%),var(--bg)}
+.lb{width:100%;max-width:400px;padding:40px}
+.lb-logo{display:flex;align-items:center;gap:13px;margin-bottom:36px}
+.zig{width:46px;height:46px;border-radius:13px;background:linear-gradient(135deg,var(--blue),#6aa6ff);display:grid;place-items:center;color:#fff;font-size:22px}
+.lb-logo b{font-size:20px;color:#fff;display:block}
+.lb-logo span{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--blue);font-weight:700}
+.fld{margin-bottom:14px}
+.fld label{display:block;font-size:12px;font-weight:600;color:var(--txt-2);margin-bottom:6px}
+.fld input,.fld select,.fld textarea{width:100%;height:44px;border:1px solid var(--line-2);border-radius:var(--r);padding:0 13px;background:var(--surf);color:var(--txt)}
+.fld textarea{height:auto;padding:11px 13px;resize:vertical}
+.fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
+.btn-blue{width:100%;height:46px;background:var(--blue);color:#fff;border-radius:var(--r);font-weight:700;font-size:15px;transition:.15s;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-blue:hover{background:var(--blue-2)}
+
+/* SHELL */
+#app{display:none;height:100vh;overflow:hidden}
+.shell{display:grid;grid-template-columns:80px 1fr;height:100vh}
+.rail{background:var(--bg-2);border-right:1px solid var(--line-2);display:flex;flex-direction:column;align-items:center;padding:14px 0 10px;gap:3px}
+.rail .top-logo{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--blue),#6aa6ff);display:grid;place-items:center;color:#fff;font-size:20px;margin-bottom:8px}
+.rail .ws{width:36px;height:36px;border-radius:50%;background:var(--surf-3);display:grid;place-items:center;font-weight:700;font-size:14px;margin-bottom:12px;border:1px solid var(--line-2)}
+.ri{width:64px;padding:8px 0 6px;border-radius:11px;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--txt-2);font-size:20px;transition:.13s;cursor:pointer;position:relative}
+.ri .lb2{font-size:9.5px;font-weight:600;text-align:center;color:inherit;line-height:1.1}
+.ri:hover{background:var(--surf-2);color:var(--txt)}
+.ri.active{color:var(--blue);background:var(--surf)}
+.ri.active::before{content:'';position:absolute;left:-16px;top:50%;transform:translateY(-50%);width:3px;height:26px;background:var(--blue);border-radius:0 3px 3px 0}
+.ri .bdg{position:absolute;top:3px;right:11px;background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:20px;min-width:15px;height:15px;display:grid;place-items:center;padding:0 3px}
+.rail .sp{flex:1}
+.main{overflow-y:auto;background:var(--bg)}
+
+/* BUTTONS */
+.btn{height:38px;padding:0 14px;border-radius:9px;font-weight:700;font-size:13px;display:inline-flex;align-items:center;gap:7px;transition:.15s;border:1px solid transparent}
+.btn i{font-size:17px}
+.btn.blue{background:var(--blue-pale);color:#0a1730}.btn.blue:hover{background:#bcd5ff}
+.btn.blue-s{background:var(--blue);color:#fff}.btn.blue-s:hover{background:var(--blue-2)}
+.btn.ghost{background:var(--surf);border-color:var(--line-2);color:var(--txt)}.btn.ghost:hover{border-color:var(--line-3)}
+.btn.sm{height:32px;padding:0 11px;font-size:12px}
+.ibtn{height:38px;padding:0 13px;border-radius:9px;background:var(--surf);border:1px solid var(--line-2);color:var(--txt);font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:7px;transition:.13s}
+.ibtn:hover{border-color:var(--line-3)}
+.ibtn i{font-size:17px;color:var(--txt-2)}
+
+/* VIEWS */
+.view{display:none}.view.active{display:block;animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.head{padding:22px 28px 0;display:flex;align-items:flex-start;gap:14px}
+.head h1{font-size:25px}.head .sub{font-size:13px;color:var(--txt-2);margin-top:3px}
+.head .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.pad{padding:20px 28px 60px}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:var(--r-lg)}
+.cpad{padding:18px 20px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:960px){.g2{grid-template-columns:1fr}}
+
+/* TAGS */
+.tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px}
+.tag.blue{background:var(--blue-soft);color:#7fb0ff}
+.tag.green{background:var(--green-soft);color:var(--green)}
+.tag.red{background:var(--red-soft);color:var(--red)}
+.tag.amber{background:var(--amber-soft);color:var(--amber)}
+.tag.purple{background:var(--purple-soft);color:var(--purple)}
+.tag.gray{background:var(--surf-3);color:var(--txt-2)}
+.tag.dot::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block}
+
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+@media(max-width:1100px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--surf);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 18px}
+.kpi .kt{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.kpi .kt b{font-size:13.5px;color:var(--txt);font-weight:600}
+.kpi .kv .v{font-size:26px;font-weight:800;color:#fff;letter-spacing:-.03em}
+.kpi .kv .v small{font-size:12px;color:var(--txt-2);font-weight:500;display:block;margin-top:2px}
+
+/* KANBAN */
+.pipe-wrap{display:grid;grid-template-columns:220px 1fr;height:calc(100vh - 0px)}
+.pipe-side{border-right:1px solid var(--line);padding:16px;background:var(--bg-2);overflow-y:auto}
+.pipe-main{overflow:hidden;display:flex;flex-direction:column}
+.kanban{display:flex;gap:13px;overflow-x:auto;padding:6px 28px 20px;flex:1}
+.col-k{flex:0 0 285px;background:var(--surf);border:1px solid var(--line);border-radius:var(--r-lg);display:flex;flex-direction:column;max-height:calc(100vh - 200px)}
+.col-k .ch{padding:12px 14px;border-bottom:1px solid var(--line)}
+.col-k .ch .t1{display:flex;align-items:center;gap:7px}
+.col-k .ch .dt{width:10px;height:10px;border-radius:50%}
+.col-k .ch h4{font-size:13.5px;font-weight:700;color:#fff;flex:1}
+.col-k .ch .sub{display:flex;justify-content:space-between;font-size:11.5px;color:var(--txt-2);margin-top:6px}
+.col-k .ch .sub b{color:var(--txt)}
+.col-k .cb{padding:10px;display:flex;flex-direction:column;gap:9px;overflow-y:auto;flex:1;min-height:50px}
+.col-k .nb{padding:11px;border-top:1px solid var(--line);color:var(--txt-2);font-size:12.5px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:.1s}
+.col-k .nb:hover{color:var(--blue)}
+.biz{background:var(--surf-2);border:1px solid var(--line-2);border-radius:9px;padding:12px;cursor:grab;transition:.12s}
+.biz:hover{border-color:var(--blue)}
+.biz.drag{opacity:.4}
+.biz .bh{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.biz .av{width:29px;height:29px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:11px;flex-shrink:0}
+.biz .nm{font-size:13px;font-weight:700;color:#fff}
+.biz .ph{font-size:11px;color:var(--txt-3)}
+.biz .meta{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.biz .ft{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--txt-2);border-top:1px solid var(--line);padding-top:8px}
+.biz .ft .vl{margin-left:auto;font-weight:700;color:var(--green)}
+.col-k.over{outline:2px dashed var(--blue);outline-offset:-2px}
+.new-col{flex:0 0 200px;border:1.5px dashed var(--line-2);border-radius:var(--r-lg);height:80px;display:flex;align-items:center;justify-content:center;gap:7px;color:var(--txt-2);font-weight:600;font-size:13px;cursor:pointer;transition:.12s}
+.new-col:hover{border-color:var(--blue);color:var(--blue)}
+.pl-item{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:8px;font-size:13px;font-weight:600;color:var(--txt-2);cursor:pointer;transition:.1s;margin-bottom:3px}
+.pl-item:hover{background:var(--surf)}.pl-item.active{background:var(--surf-2);color:#fff}
+.pl-item i{font-size:15px;color:var(--blue)}
+
+/* TABLE */
+.tbl-card{border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;background:var(--surf)}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{text-align:left;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--txt-3);font-weight:700;padding:12px 15px;border-bottom:1px solid var(--line);background:var(--bg-2)}
+.tbl td{padding:13px 15px;border-bottom:1px solid var(--line);font-size:13px;color:var(--txt)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tbody tr{transition:.1s;cursor:pointer}.tbl tbody tr:hover td{background:var(--surf-2)}
+.av{width:33px;height:33px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:11px}
+.ucell{display:flex;align-items:center;gap:10px}
+.ucell b{font-size:13px;font-weight:700;color:#fff}
+.ucell small{font-size:11px;color:var(--txt-3);display:block}
+
+/* CHAT */
+.chat-layout{display:grid;grid-template-columns:300px 1fr 270px;height:100vh}
+@media(max-width:1200px){.chat-layout{grid-template-columns:280px 1fr}.chat-info-panel{display:none}}
+.cl-list{border-right:1px solid var(--line);display:flex;flex-direction:column;background:var(--bg-2);overflow:hidden}
+.cl-top{padding:12px 14px;border-bottom:1px solid var(--line)}
+.cl-sr{display:flex;align-items:center;gap:7px;background:var(--surf);border:1px solid var(--line-2);border-radius:8px;padding:0 11px;height:36px}
+.cl-sr input{flex:1;background:none;border:none}
+.cl-sr i{color:var(--txt-3);font-size:17px}
+.cl-convs{flex:1;overflow-y:auto}
+.cv{display:flex;gap:10px;padding:12px 14px;cursor:pointer;border-bottom:1px solid var(--line);transition:.1s}
+.cv:hover{background:var(--surf)}.cv.active{background:var(--surf-2);border-left:3px solid var(--blue)}
+.cv .cav{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:14px;flex-shrink:0;position:relative}
+.cv .cav .wa{position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;background:var(--wa);border-radius:50%;border:2px solid var(--bg-2);display:grid;place-items:center;color:#fff;font-size:7px}
+.cv .cc{flex:1;min-width:0}
+.cv .cn{display:flex;align-items:center;gap:5px}
+.cv .cn b{font-size:13px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cv .cn small{margin-left:auto;font-size:10px;color:var(--txt-3);white-space:nowrap}
+.cv .pv{font-size:11.5px;color:var(--txt-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.chat-main{display:flex;flex-direction:column;background:var(--bg);overflow:hidden}
+.cm-head{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:11px;background:var(--bg-2)}
+.cm-head .cav{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px}
+.cm-head b{font-size:14px;color:#fff}
+.cm-head small{font-size:11px;color:var(--txt-3)}
+.cm-head .ha{margin-left:auto;display:flex;align-items:center;gap:9px}
+.finish-btn{height:32px;padding:0 13px;border-radius:8px;border:1px solid var(--green);color:var(--green);font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:5px}
+.cm-body{flex:1;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:62%;padding:10px 13px;border-radius:12px;font-size:13px;line-height:1.5;white-space:pre-line}
+.msg small{display:block;font-size:10px;margin-top:4px;color:var(--txt-3)}
+.msg.in{align-self:flex-start;background:var(--surf-2);border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg.bot{align-self:flex-end;background:var(--blue-soft);border:1px solid #233859;border-bottom-right-radius:4px}
+.msg.bot .bm{display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;color:var(--blue);margin-bottom:5px}
+.msg.bot .rb{width:16px;height:16px;border-radius:4px;background:var(--purple);display:grid;place-items:center;color:#fff;font-size:10px}
+.msg.out{align-self:flex-end;background:var(--surf-2);border:1px solid var(--line-2);border-bottom-right-radius:4px}
+.day-sep{align-self:center;background:var(--surf-2);color:var(--txt-3);font-size:11px;font-weight:600;padding:3px 11px;border-radius:20px;margin:4px 0}
+.cm-foot{padding:12px 18px;border-top:1px solid var(--line);background:var(--bg-2)}
+.cm-input{display:flex;align-items:center;gap:8px}
+.cm-input .box{flex:1;display:flex;align-items:center;gap:7px;background:var(--surf);border:1px solid var(--line-2);border-radius:9px;padding:0 11px;height:42px}
+.cm-input .box input{flex:1;background:none;border:none}
+.cm-input .ti2{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;color:var(--txt-2);font-size:18px}
+.cm-input .ti2:hover{background:var(--surf);color:var(--txt)}
+.chat-info-panel{border-left:1px solid var(--line);background:var(--bg-2);padding:20px 16px;overflow-y:auto;text-align:center}
+.ci-av{width:60px;height:60px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:22px;margin:0 auto 10px}
+.info-blk{border-top:1px solid var(--line);padding:12px 0;text-align:left}
+.info-blk .il2{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);font-weight:700;margin-bottom:8px}
+.irow{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0}
+.irow span{color:var(--txt-2)}.irow b{color:#fff}
+
+/* AUTOMATIONS */
+.auto-layout{display:grid;grid-template-columns:280px 1fr;height:100vh}
+.auto-side{border-right:1px solid var(--line);background:var(--bg-2);display:flex;flex-direction:column;overflow:hidden}
+.auto-side .ash{padding:16px;border-bottom:1px solid var(--line)}
+.auto-list{flex:1;overflow-y:auto;padding:8px 10px}
+.al-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:8px;cursor:pointer;transition:.1s;margin-bottom:2px}
+.al-item:hover{background:var(--surf)}.al-item.active{background:var(--surf-2)}
+.al-item .gi{font-size:15px;color:var(--txt-3)}
+.al-item .nm{flex:1;font-size:12.5px;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.al-item .pw2.on{color:var(--green)}.al-item .pw2.off{color:var(--txt-3)}
+.auto-main{overflow-y:auto;padding:24px 28px}
+.flow-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-top:18px}
+.fc{background:var(--surf);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;display:flex;flex-direction:column;transition:.13s}
+.fc:hover{border-color:var(--line-3)}
+.fc .thumb{height:140px;background:var(--bg-2);border-bottom:1px solid var(--line);position:relative;overflow:hidden;padding:12px}
+.fc .ttl{padding:14px 16px;flex:1}
+.fc .ttl b{font-size:15px;color:#fff;display:block;margin-bottom:4px}
+.fc .ttl p{font-size:12px;color:var(--txt-2);line-height:1.5}
+.fc .fa{padding:0 16px 14px}
+.fc .open{width:100%;height:38px;border:1px solid var(--blue);color:var(--blue);border-radius:8px;font-weight:700;font-size:12.5px;display:flex;align-items:center;justify-content:center;gap:6px;transition:.12s}
+.fc .open:hover{background:var(--blue-soft)}
+.fc.create{border:1px dashed var(--line-2)}
+.fc.create .ci{padding:20px 18px;display:flex;flex-direction:column;height:100%}
+.fc.create h3{font-size:17px;margin-bottom:7px}
+.fc.create p{font-size:12.5px;color:var(--txt-2);line-height:1.55;flex:1}
+.mini-node{position:absolute;background:var(--surf-2);border:1px solid var(--line-2);border-radius:5px;padding:4px 7px;font-size:8px;color:var(--txt-2);display:flex;align-items:center;gap:3px}
+.mini-line{position:absolute;background:var(--line-2)}
+
+/* AGENT BUILDER */
+.builder{display:grid;grid-template-columns:340px 1fr;height:100vh}
+.bld-side{border-right:1px solid var(--line);background:var(--bg-2);display:flex;flex-direction:column;overflow:hidden}
+.bld-side .bsh{padding:16px;border-bottom:1px solid var(--line)}
+.bld-side .bk{display:flex;align-items:center;gap:7px;color:var(--txt-2);font-size:12.5px;font-weight:600;cursor:pointer;margin-bottom:12px}
+.bld-side .bk:hover{color:var(--txt)}
+.prompt-panel{flex:1;overflow-y:auto;padding:16px}
+.pp-card{background:linear-gradient(150deg,#172a4d,#101824);border:1px solid #25406b;border-radius:13px;padding:15px;margin-bottom:14px}
+.pp-card .pt{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.pp-card .pt .rb{width:28px;height:28px;border-radius:8px;background:var(--purple);display:grid;place-items:center;color:#fff;font-size:16px}
+.pp-card .pt b{font-size:14px;color:#fff}
+.pp-card p{font-size:12px;color:#9db4d6;line-height:1.5;margin-bottom:11px}
+.pp-input{background:rgba(0,0,0,.3);border:1px solid #2a456e;border-radius:9px;padding:11px}
+.pp-input textarea{width:100%;background:none;border:none;color:#fff;font-size:13px;resize:none;min-height:90px;line-height:1.55}
+.pp-input textarea:focus{outline:none}
+.pp-gen{width:100%;height:40px;margin-top:10px;background:linear-gradient(135deg,var(--blue),#6aa6ff);color:#fff;border-radius:9px;font-weight:700;font-size:13.5px;display:flex;align-items:center;justify-content:center;gap:7px;transition:.15s}
+.pp-gen:hover{filter:brightness(1.08)}
+.pp-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.pp-chips .c{font-size:11px;background:rgba(255,255,255,.06);border:1px solid #2a456e;color:#9db4d6;border-radius:20px;padding:5px 10px;cursor:pointer;transition:.1s}
+.pp-chips .c:hover{background:rgba(255,255,255,.12);color:#fff}
+.palette{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}
+.pal{display:flex;align-items:center;gap:7px;padding:9px;border:1px solid var(--line-2);border-radius:8px;background:var(--surf);font-size:11.5px;font-weight:600;color:var(--txt);cursor:pointer;transition:.1s}
+.pal:hover{border-color:var(--blue)}
+.pal i{font-size:17px}
+.bld-canvas{position:relative;overflow:auto;background:var(--bg);background-image:radial-gradient(var(--line) 1px,transparent 1px);background-size:26px 26px;padding:36px}
+.canvas-top{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:11px;margin:-36px -36px 22px;padding:12px 28px;background:rgba(10,12,15,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.canvas-top .nm{font-size:15px;font-weight:700;color:#fff}
+.canvas-top .right{margin-left:auto;display:flex;gap:9px}
+.flow{display:flex;flex-direction:column;align-items:center;max-width:540px;margin:0 auto;padding-bottom:60px}
+.node{width:100%;background:var(--surf);border:1px solid var(--line-2);border-radius:12px;overflow:hidden;transition:.15s;opacity:0;animation:nodein .4s forwards}
+@keyframes nodein{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+.node:hover{border-color:var(--blue)}
+.node .nh{display:flex;align-items:center;gap:10px;padding:12px 14px}
+.node .nh .ic{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;font-size:19px;color:#fff;flex-shrink:0}
+.node .nh .nt{flex:1}
+.node .nh .nt .k{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+.node .nh .nt b{display:block;font-size:13.5px;color:#fff;margin-top:1px}
+.node .nh .ed{color:var(--txt-3);font-size:16px;cursor:pointer}
+.node .nbody{padding:0 14px 12px;font-size:12px;color:var(--txt-2);line-height:1.5}
+.node .nbody .bub{background:var(--bg-2);border:1px solid var(--line);border-radius:7px;padding:8px 10px;margin-top:3px;color:var(--txt);white-space:pre-line}
+.n-trigger .ic{background:var(--green)}.n-trigger .k{color:var(--green)}
+.n-msg .ic{background:var(--blue)}.n-msg .k{color:var(--blue)}
+.n-cond .ic{background:var(--amber)}.n-cond .k{color:var(--amber)}
+.n-ia .ic{background:var(--purple)}.n-ia .k{color:var(--purple)}
+.n-acao .ic,.n-pms .ic{background:var(--teal)}.n-acao .k,.n-pms .k{color:var(--teal)}
+.n-extrai .ic{background:var(--purple)}.n-extrai .k{color:var(--purple)}
+.n-fim .ic{background:var(--txt-3)}.n-fim .k{color:var(--txt-3)}
+.connector{width:2px;height:26px;background:var(--line-3);position:relative}
+.connector::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--line-3)}
+.branch{display:flex;gap:40px;justify-content:center;width:100%;position:relative}
+.branch::before{content:'';position:absolute;top:-26px;left:25%;right:25%;height:2px;background:var(--line-3)}
+.branch-col{flex:1;display:flex;flex-direction:column;align-items:center;position:relative}
+.branch-col::before{content:'';position:absolute;top:-26px;width:2px;height:26px;background:var(--line-3)}
+.branch-lbl{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:5px;margin-bottom:9px}
+.add-step{width:30px;height:30px;border-radius:50%;border:1.5px dashed var(--line-3);background:var(--surf);color:var(--txt-2);display:grid;place-items:center;font-size:16px;margin:8px 0;transition:.12s}
+.add-step:hover{border-color:var(--blue);color:var(--blue)}
+.gen-status{display:none;align-items:center;gap:9px;justify-content:center;padding:12px;color:var(--blue);font-size:13px;font-weight:600}
+.gen-status.show{display:flex}
+.gen-status .sp{width:15px;height:15px;border:2px solid var(--blue-soft);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* CONFIG */
+.switch{width:36px;height:20px;border-radius:20px;background:var(--green);position:relative;cursor:pointer;transition:.2s;flex-shrink:0}
+.switch.off{background:var(--line-3)}
+.switch::after{content:'';position:absolute;top:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.2s;left:18px}
+.switch.off::after{left:2px}
+.integ{display:flex;align-items:center;gap:14px;padding:14px 17px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surf);margin-bottom:11px}
+.integ .lg{width:44px;height:44px;border-radius:11px;display:grid;place-items:center;font-size:22px;color:#fff;flex-shrink:0}
+.integ .id{flex:1}
+.integ .id b{font-size:14px;color:#fff;display:block}
+.integ .id span{font-size:12px;color:var(--txt-2)}
+.strack{position:relative;height:9px;background:var(--surf-3);border-radius:20px;margin:32px 0 13px}
+.sfill{position:absolute;left:0;top:0;bottom:0;border-radius:20px;background:linear-gradient(90deg,var(--blue),var(--teal))}
+.sknob{position:absolute;top:50%;width:22px;height:22px;border-radius:50%;background:#fff;border:3px solid var(--blue);transform:translate(-50%,-50%);cursor:grab;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.sval{position:absolute;top:-30px;transform:translateX(-50%);background:var(--blue);color:#fff;font-size:12px;font-weight:700;padding:2px 9px;border-radius:7px}
+
+/* MODAL + TOAST */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(3px);z-index:200;display:none;align-items:center;justify-content:center;padding:22px}
+.modal-bg.show{display:flex;animation:fade .2s}
+.modal{background:var(--surf);border:1px solid var(--line-2);border-radius:var(--r-xl);width:100%;max-width:500px;max-height:90vh;overflow-y:auto}
+.modal-h{padding:20px 22px 0;display:flex;align-items:flex-start;gap:13px}
+.modal-h .ic{width:42px;height:42px;border-radius:11px;background:var(--blue-soft);color:var(--blue);display:grid;place-items:center;font-size:21px}
+.modal-h h3{font-size:18px}.modal-h p{font-size:12.5px;color:var(--txt-2);margin-top:2px}
+.modal-h .x{margin-left:auto;font-size:20px;color:var(--txt-3);cursor:pointer}
+.modal-b{padding:16px 22px 22px}
+.modal-foot{padding:0 22px 22px;display:flex;gap:9px;justify-content:flex-end}
+.fr{display:flex;gap:11px}.fr .fld{flex:1}
+.loading{display:flex;align-items:center;justify-content:center;padding:48px;color:var(--txt-3);gap:10px;font-size:13px}
+.loading .sp{width:18px;height:18px;border:2px solid var(--line-2);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(120px);background:var(--surf-3);border:1px solid var(--line-3);color:#fff;padding:12px 18px;border-radius:10px;font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:9px;z-index:300;transition:.3s}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast i{color:var(--green);font-size:19px}
+.support{position:fixed;bottom:20px;right:20px;background:var(--blue-pale);color:#0a1730;font-weight:700;font-size:12.5px;padding:9px 14px;border-radius:9px;display:flex;align-items:center;gap:6px;z-index:90}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="lb">
+    <div class="lb-logo"><div class="zig"><i class="ti ti-brand-zapier"></i></div><div><b>Vila Mundaí</b><span>CRM</span></div></div>
+    <h1 style="font-size:24px;margin-bottom:5px">Entrar no painel</h1>
+    <p style="color:var(--txt-2);margin-bottom:22px;font-size:13.5px">Atendimento, funil e automações com IA.</p>
+    <div class="fld"><label>E-mail</label><input id="liEmail" value="gestor@vilamundai.com.br"></div>
+    <div class="fld"><label>Senha</label><input id="liPass" type="password" value="••••••••"></div>
+    <button class="btn-blue" onclick="doLogin()"><i class="ti ti-login-2"></i> Entrar</button>
+  </div>
+</div>
+
+<div id="app">
+  <div class="shell">
+    <nav class="rail" id="rail"></nav>
+    <main class="main" id="main"></main>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalBg"><div class="modal" id="modalC"></div></div>
+<div class="toast" id="toast"><i class="ti ti-circle-check"></i><span id="toastMsg"></span></div>
+<div class="support" style="display:none" id="support"><i class="ti ti-headset"></i> Suporte</div>
+
+<script>
+/* ============================================================
+   CONFIGURAÇÃO DA API
+   ============================================================ */
+const API_URL = window.location.origin;
+const API_KEY = 'vilamundai2024secreto';
+
+async function api(method, path, body) {
+  try {
+    const opts = {
+      method,
+      headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+    };
+    if (body) opts.body = JSON.stringify(body);
+    const r = await fetch(API_URL + path, opts);
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  } catch (e) {
+    console.error('[api]', method, path, e.message);
+    throw e;
+  }
+}
+const GET = p => api('GET', p);
+const POST = (p, b) => api('POST', p, b);
+const PATCH = (p, b) => api('PATCH', p, b);
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+const AVC = ['#4f8ff7','#34d399','#fbbf24','#f87171','#9b87f5','#2dd4bf','#f472b6','#fb923c'];
+function initials(n){return(n||'?').split(' ').filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase()}
+function avColor(n){let s=0;for(const c of(n||''))s+=c.charCodeAt(0);return AVC[s%AVC.length]}
+function brl(v){return v?Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'—'}
+function toast(m,ok=true){const t=document.getElementById('toast');document.getElementById('toastMsg').textContent=m;t.querySelector('i').className=ok?'ti ti-circle-check':'ti ti-alert-triangle';t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
+function openModal(h){document.getElementById('modalC').innerHTML=h;document.getElementById('modalBg').classList.add('show')}
+function closeModal(){document.getElementById('modalBg').classList.remove('show')}
+document.getElementById('modalBg').addEventListener('click',e=>{if(e.target.id==='modalBg')closeModal()});
+function loading(){return `<div class="loading"><span class="sp"></span> Carregando…</div>`}
+
+/* ============================================================
+   ESTADO
+   ============================================================ */
+const COLS=[
+  {id:'qualif',nome:'Qualificação',cor:'#4f8ff7'},
+  {id:'apres',nome:'Apresentação',cor:'#9b87f5'},
+  {id:'quente',nome:'Lead Quente',cor:'#fbbf24'},
+  {id:'negociacao',nome:'Negociação',cor:'#fb923c'},
+  {id:'contrato',nome:'Contrato',cor:'#2dd4bf'},
+  {id:'pagamento',nome:'Pagamento',cor:'#a78bfa'},
+  {id:'ganho',nome:'Ganho',cor:'#34d399'},
+  {id:'morno',nome:'Morno',cor:'#64748b'},
+];
+const S={view:'dashboard',activeConv:null,convs:[],leads:[],clientes:[],autos:[],msgs:[],drag:null,automPct:75,bNodes:[],bName:'Nova automação',robotOn:true};
+
+/* ============================================================
+   NAVEGAÇÃO
+   ============================================================ */
+const NAV=[
+  {id:'dashboard',ic:'ti-layout-grid',nm:'Painel'},
+  {id:'pipelines',ic:'ti-filter',nm:'Funil'},
+  {id:'leads',ic:'ti-users',nm:'Leads'},
+  {id:'clientes',ic:'ti-user-check',nm:'Clientes'},
+  {id:'automations',ic:'ti-git-fork',nm:'Fluxos'},
+  {id:'chat',ic:'ti-message-circle',nm:'Atendimentos'},
+  {id:'agente',ic:'ti-sparkles',nm:'Agente'},
+];
+const NAV2=[
+  {id:'config',ic:'ti-settings',nm:'Config'},
+];
+function railItem(n){return `<div class="ri ${S.view===n.id?'active':''}" onclick="go('${n.id}')"><i class="ti ${n.ic}"></i>${n.bdg?`<span class="bdg">${n.bdg}</span>`:''}<span class="lb2">${n.nm}</span></div>`}
+function renderRail(){document.getElementById('rail').innerHTML=`<div class="top-logo"><i class="ti ti-brand-zapier"></i></div><div class="ws">V</div>${NAV.map(railItem).join('')}<div class="sp"></div>${NAV2.map(railItem).join('')}`}
+
+async function go(v){S.view=v;renderRail();document.getElementById('main').innerHTML=loading();document.getElementById('main').scrollTop=0;await renderMain()}
+
+/* ============================================================
+   RENDER ROUTER
+   ============================================================ */
+async function renderMain(){
+  const fn={dashboard:vDashboard,pipelines:vPipelines,leads:vLeads,clientes:vClientes,automations:vAutomations,chat:vChat,agente:vAgente,config:vConfig}[S.view];
+  if(fn)await fn();
+}
+
+function doLogin(){
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('support').style.display='flex';
+  renderRail();renderMain();
+}
+
+/* ============================================================
+   DASHBOARD
+   ============================================================ */
+async function vDashboard(){
+  const leads=await GET('/api/v1/leads').catch(()=>[]);
+  S.leads=leads;
+  const total=leads.length;
+  const won=leads.filter(l=>l.stage==='ganho');
+  const open=leads.filter(l=>l.stage!=='ganho');
+  const vWon=won.reduce((a,l)=>a+Number(l.valor_cotado||0),0);
+  const vOpen=open.reduce((a,l)=>a+Number(l.valor_cotado||0),0);
+  document.getElementById('main').innerHTML=`<div class="view active">
+  <div class="head"><div><h1>Dashboard</h1><div class="sub">Desempenho da Vila Mundaí</div></div>
+    <div class="right"><button class="btn blue" onclick="go('agente')"><i class="ti ti-sparkles"></i> Pedir à IA</button></div></div>
+  <div class="pad">
+    <div class="kpis">
+      ${kpiH('Total de leads','ti-users',total+' contatos',brl(vWon+vOpen),'#4f8ff7')}
+      ${kpiH('Ganhos','ti-trending-up',won.length+' reservas',brl(vWon),'#34d399')}
+      ${kpiH('Em aberto','ti-activity',open.length+' leads',brl(vOpen),'#fbbf24')}
+      ${kpiH('Taxa de conversão','ti-target-arrow',total?Math.round(won.length/total*100)+'%':'0%','Meta: 30%','#9b87f5')}
+    </div>
+    <div class="g2" style="margin-bottom:16px">
+      <div class="card cpad">
+        <h2 style="font-size:16px;margin-bottom:14px">Leads por etapa</h2>
+        ${COLS.map(c=>{const n=leads.filter(l=>l.stage===c.id).length;return `<div style="margin-bottom:11px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--txt-2)">${c.nome}</span><b style="color:#fff">${n}</b></div><div style="height:7px;background:var(--surf-3);border-radius:20px;overflow:hidden"><div style="height:100%;width:${total?Math.min((n/total)*100*3,100):0}%;background:${c.cor};border-radius:20px;transition:.5s"></div></div></div>`}).join('')}
+      </div>
+      <div class="card cpad">
+        <h2 style="font-size:16px;margin-bottom:14px">Últimos leads</h2>
+        ${leads.slice(0,5).map(l=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">
+          <div class="av" style="background:${avColor(l.nome)}">${initials(l.nome)}</div>
+          <div style="flex:1"><b style="font-size:13px;color:#fff;display:block">${l.nome||l.phone}</b><span style="font-size:11px;color:var(--txt-3)">${l.phone}</span></div>
+          <span class="tag ${l.ai_enabled?'purple':'amber'} dot">${l.ai_enabled?'IA':'Humano'}</span>
+        </div>`).join('')||'<div style="color:var(--txt-3);font-size:13px;padding:20px 0;text-align:center">Nenhum lead ainda</div>'}
+      </div>
+    </div>
+  </div></div>`;
+}
+function kpiH(lbl,ic,sub,val,cor){return `<div class="kpi"><div class="kt"><b>${lbl}</b><i class="ti ${ic}" style="color:${cor};font-size:20px"></i></div><div class="kv"><div class="v">${val}<small>${sub}</small></div></div></div>`}
+
+/* ============================================================
+   PIPELINES / KANBAN
+   ============================================================ */
+async function vPipelines(){
+  const leads=await GET('/api/v1/leads').catch(()=>[]);
+  S.leads=leads;
+  document.getElementById('main').innerHTML=`<div class="view active" style="height:100vh">
+  <div class="pipe-wrap">
+    <div class="pipe-side">
+      <button class="btn blue" style="width:100%;justify-content:center;margin-bottom:14px" onclick="toast('Criar novo pipeline')"><i class="ti ti-plus"></i> Novo pipeline</button>
+      <div class="pl-item active"><i class="ti ti-filter"></i> Vila Mundaí</div>
+    </div>
+    <div class="pipe-main">
+      <div style="padding:20px 28px 14px;display:flex;align-items:center;gap:14px">
+        <div><h1 style="font-size:22px">Vila Mundaí</h1><div style="font-size:12.5px;color:var(--txt-2);margin-top:2px">Funil de vendas</div></div>
+        <div style="margin-left:auto;display:flex;gap:9px">
+          <button class="ibtn" onclick="toast('Filtros')"><i class="ti ti-adjustments"></i> Filtros</button>
+          <button class="btn blue" onclick="modalNovoBiz()"><i class="ti ti-plus"></i> Novo negócio</button>
+        </div>
+      </div>
+      <div class="kanban" id="kanban">
+        ${COLS.map(c=>{const bs=leads.filter(l=>l.stage===c.id);const val=bs.reduce((a,l)=>a+Number(l.valor_cotado||0),0);return `
+          <div class="col-k" data-col="${c.id}">
+            <div class="ch"><div class="t1"><span class="dt" style="background:${c.cor}"></span><h4>${c.nome}</h4></div>
+              <div class="sub"><b>${brl(val)}</b><span>${bs.length} negócios</span></div></div>
+            <div class="cb" data-col="${c.id}">${bs.map(b=>bizCard(b)).join('')}</div>
+            <div class="nb" onclick="modalNovoBiz('${c.id}')"><i class="ti ti-plus"></i> Novo negócio</div>
+          </div>`}).join('')}
+        <div class="new-col" onclick="toast('Nova coluna')"><i class="ti ti-plus"></i> Nova coluna</div>
+      </div>
+    </div>
+  </div></div>`;
+  bindKanban();
+}
+function bizCard(b){return `<div class="biz" draggable="true" data-id="${b.id}" onclick="modalBiz(${b.id})">
+  <div class="bh"><div class="av" style="background:${avColor(b.nome)};width:29px;height:29px;font-size:11px">${initials(b.nome)}</div>
+    <div style="flex:1;min-width:0"><div class="nm">${b.nome||b.phone}</div><div class="ph">${b.phone}</div></div>
+    ${b.ai_enabled?'<span class="tag purple dot" style="font-size:10px">IA</span>':'<i class="ti ti-hand-stop" style="color:var(--amber);font-size:14px"></i>'}</div>
+  <div class="meta">${(b.tags||[]).map(t=>`<span class="tag gray" style="font-size:10px">${t}</span>`).join('')}</div>
+  <div class="ft"><i class="ti ti-calendar"></i> ${b.checkin||'—'}<span class="vl">${b.valor_cotado?brl(b.valor_cotado):''}</span></div>
+</div>`}
+function bindKanban(){
+  document.querySelectorAll('.biz').forEach(c=>{
+    c.addEventListener('dragstart',()=>{S.drag=+c.dataset.id;c.classList.add('drag')});
+    c.addEventListener('dragend',()=>c.classList.remove('drag'));
+  });
+  document.querySelectorAll('.col-k').forEach(col=>{
+    col.addEventListener('dragover',e=>{e.preventDefault();col.classList.add('over')});
+    col.addEventListener('dragleave',()=>col.classList.remove('over'));
+    col.addEventListener('drop',async e=>{e.preventDefault();col.classList.remove('over');
+      if(S.drag){await PATCH(`/api/v1/leads/${S.drag}`,{stage:col.dataset.col}).catch(()=>null);
+        toast('Lead movido');await vPipelines();}});
+  });
+}
+async function abrirLead(id){const b=await GET("/api/v1/leads/"+id).catch(()=>S.leads.find(x=>x.id===id));if(!b)return;S.leads=S.leads.map(x=>x.id===id?b:x);modalBiz2(b);}
+function modalBiz2(b){
+  
+  openModal(`<div class="modal-h"><div class="ic" style="background:${avColor(b.nome)};color:#fff">${initials(b.nome)}</div>
+    <div><h3>${b.nome||b.phone}</h3><p>${b.phone}</p></div><span class="x" onclick="closeModal()"><i class="ti ti-x"></i></span></div>
+    <div class="modal-b">
+      <div class="fr"><div class="fld"><label>Etapa</label><select onchange="moverBiz(${b.id},this.value)">${COLS.map(c=>`<option ${c.id===b.stage?'selected':''} value="${c.id}">${c.nome}</option>`).join('')}</select></div>
+        <div class="fld"><label>Valor</label><input value="${b.valor_cotado||''}" placeholder="R$"></div></div>
+      <div class="fld"><label>IA ativa</label><select onchange="toggleAIBiz(${b.id},this.value)"><option ${b.ai_enabled?'selected':''} value="true">Sim — piloto automático</option><option ${!b.ai_enabled?'selected':''} value="false">Não — atendimento humano</option></select></div>
+    </div>
+    <div class="modal-foot"><button class="btn ghost" style="color:var(--red);border-color:var(--red-soft)" onclick="deleteLead(${b.id})"><i class="ti ti-trash"></i> Apagar</button><button class="btn ghost" onclick="closeModal()">Fechar</button><button class="btn blue" onclick="closeModal();go('chat')"><i class="ti ti-message-circle"></i> Abrir conversa</button></div>`);
+}
+async function deleteLead(id){
+  if(!confirm('Apagar este lead do banco? Essa ação não pode ser desfeita.'))return;
+  await api('DELETE',`/api/v1/leads/${id}`).catch(e=>toast(e.message,false));
+  closeModal();toast('Lead apagado');await vPipelines();
+}
+async function moverBiz(id,stage){await PATCH(`/api/v1/leads/${id}`,{stage}).catch(()=>null);toast('Etapa atualizada')}
+async function toggleAIBiz(id,v){await PATCH(`/api/v1/leads/${id}/ai`,{ai_enabled:v==='true'}).catch(()=>null);toast(v==='true'?'IA reativada':'Atendimento humano ativado')}
+function modalNovoBiz(col='qualif'){openModal(`<div class="modal-h"><div class="ic"><i class="ti ti-briefcase"></i></div><div><h3>Novo negócio</h3><p>Etapa: ${COLS.find(c=>c.id===col)?.nome||'Qualificação'}</p></div><span class="x" onclick="closeModal()"><i class="ti ti-x"></i></span></div>
+  <div class="modal-b"><div class="fld"><label>Nome</label><input id="nNome" placeholder="Nome do hóspede"></div>
+    <div class="fr"><div class="fld"><label>WhatsApp</label><input id="nPhone" placeholder="5573..."></div><div class="fld"><label>Origem</label><select id="nOrig"><option>whatsapp</option><option>instagram</option><option>site</option><option>google_ads</option></select></div></div></div>
+  <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn blue-s" onclick="criarBiz('${col}')"><i class="ti ti-check"></i> Criar</button></div>`)}
+async function criarBiz(col){
+  const nome=document.getElementById('nNome')?.value;const phone=document.getElementById('nPhone')?.value;const origem=document.getElementById('nOrig')?.value;
+  if(!phone){toast('WhatsApp é obrigatório',false);return}
+  await POST('/api/v1/leads',{phone,nome,origem}).catch(e=>{toast(e.message,false);return null});
+  closeModal();toast('Lead criado');await vPipelines();
+}
+
+/* ============================================================
+   LEADS TABLE
+   ============================================================ */
+async function vLeads(){
+  const leads=await GET('/api/v1/leads').catch(()=>[]);
+  S.leads=leads;
+  document.getElementById('main').innerHTML=`<div class="view active">
+  <div class="head"><div><h1>Leads</h1><div class="sub">Todos os contatos</div></div>
+    <div class="right"><button class="btn blue" onclick="modalNovoBiz()"><i class="ti ti-plus"></i> Novo lead</button></div></div>
+  <div class="pad">
+    <div class="tbl-card">
+      <table class="tbl">
+        <thead><tr><th>Lead</th><th>WhatsApp</th><th>Etapa</th><th>Score</th><th>Atendimento</th><th>Valor</th></tr></thead>
+        <tbody>${leads.map(l=>`<tr onclick="abrirLead(${l.id})">
+          <td><div class="ucell"><div class="av" style="background:${avColor(l.nome)}">${initials(l.nome)}</div><div><b>${l.nome||'—'}</b><small>${l.origem||'—'}</small></div></div></td>
+          <td style="color:var(--txt-2)"><i class="ti ti-brand-whatsapp" style="color:var(--wa)"></i> ${l.phone}</td>
+          <td><span class="tag blue dot">${COLS.find(c=>c.id===l.stage)?.nome||l.stage}</span></td>
+          <td><div style="display:flex;align-items:center;gap:7px"><div style="width:48px;height:5px;background:var(--surf-3);border-radius:20px;overflow:hidden"><div style="height:100%;width:${l.qual_score||0}%;background:${(l.qual_score||0)>70?'var(--green)':(l.qual_score||0)>40?'var(--amber)':'var(--txt-3)'};"></div></div><span style="font-size:11px;color:var(--txt-2)">${l.qual_score||0}%</span></div></td>
+          <td>${l.ai_enabled?'<span class="tag purple dot">IA</span>':'<span class="tag amber dot">Humano</span>'}</td>
+          <td><b style="color:var(--green)">${l.valor_cotado?brl(l.valor_cotado):'—'}</b></td>
+        </tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--txt-3);padding:40px">Nenhum lead encontrado</td></tr>'}</tbody>
+      </table>
+    </div>
+  </div></div>`;
+}
+
+/* ============================================================
+   AUTOMAÇÕES
+   ============================================================ */
+async function vAutomations(){
+  const autos=await GET('/api/v1/automations').catch(()=>[]);
+  S.autos=autos;
+  document.getElementById('main').innerHTML=`<div class="view active" style="height:100vh">
+  <div class="auto-layout">
+    <div class="auto-side">
+      <div class="ash">
+        <h3 style="font-size:17px;margin-bottom:12px">Automações</h3>
+        <button class="btn blue" style="width:100%;justify-content:center" onclick="go('agente')"><i class="ti ti-plus"></i> Criar com IA</button>
+      </div>
+      <div class="auto-list">
+        ${autos.map(a=>`<div class="al-item" onclick="abrirBuilder(${a.id})">
+          <i class="ti ti-git-fork gi"></i><span class="nm">${a.nome}</span>
+          <i class="ti ti-power pw2 ${a.enabled?'on':'off'}" onclick="event.stopPropagation();toggleAuto(${a.id},${!a.enabled})"></i>
+        </div>`).join('')||'<div style="color:var(--txt-3);font-size:12px;padding:16px">Nenhuma automação</div>'}
+      </div>
+    </div>
+    <div class="auto-main">
+      <h1 style="font-size:22px;margin-bottom:4px">Fluxos de automação</h1>
+      <div class="flow-cards">
+        <div class="fc create"><div class="ci"><h3>Criar nova</h3><p>Descreva o objetivo e a Claude monta o fluxo automaticamente.</p>
+          <button class="btn blue" style="margin-top:14px;justify-content:center" onclick="go('agente')"><i class="ti ti-sparkles"></i> Criar com IA</button></div></div>
+        ${autos.map(a=>`<div class="fc"><div class="thumb">${miniFlow(a)}</div>
+          <div class="ttl"><b>${a.nome}</b><p>${a.descricao||''}</p></div>
+          <div class="fa"><button class="open" onclick="abrirBuilder(${a.id})"><i class="ti ti-arrow-right"></i> Abrir</button></div></div>`).join('')}
+      </div>
+    </div>
+  </div></div>`;
+}
+function miniFlow(a){return `<div class="mini-node" style="top:12px;left:12px"><i class="ti ti-player-play" style="color:var(--green);font-size:9px"></i> Início</div>
+  <div class="mini-line" style="top:32px;left:21px;width:2px;height:22px"></div>
+  <div class="mini-node" style="top:54px;left:22px"><i class="ti ti-robot" style="color:var(--purple);font-size:9px"></i> Agente IA</div>
+  <div class="mini-line" style="top:74px;left:32px;width:2px;height:22px"></div>
+  <div class="mini-node" style="top:96px;left:32px"><i class="ti ti-message-2" style="color:var(--blue);font-size:9px"></i> Mensagem</div>`}
+async function toggleAuto(id,enabled){await PATCH(`/api/v1/automations/${id}`,{enabled}).catch(()=>null);toast(enabled?'Automação ativada':'Automação pausada');await vAutomations()}
+async function abrirBuilder(id){
+  const a=S.autos.find(x=>x.id===id);
+  S.bName=a?.nome||'Automação';
+  S.bNodes=a?.flow||[];
+  S.view='builder';renderRail();
+  await vBuilder();
+}
+
+/* ============================================================
+   CHAT / ATENDIMENTO
+   ============================================================ */
+async function vChat(){
+  const convs=await GET('/api/v1/conversations').catch(()=>[]);
+  S.convs=convs;
+  const robot=await GET('/api/v1/robot/status').catch(()=>({enabled:true}));
+  S.robotOn=robot.enabled!==false;
+  if(!S.activeConv&&convs.length)S.activeConv=convs[0].id;
+  let msgs=[];
+  if(S.activeConv)msgs=await GET(`/api/v1/conversations/${S.activeConv}/messages`).catch(()=>[]);
+  S.msgs=msgs;
+  const ac=convs.find(c=>c.id===S.activeConv)||convs[0];
+  document.getElementById('main').innerHTML=`<div class="view active" style="height:100vh">
+  <div class="chat-layout">
+    <div class="cl-list">
+      <div class="cl-top">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;background:${S.robotOn?'var(--green-soft)':'var(--red-soft)'};border:1px solid ${S.robotOn?'#1c4133':'#3d1c1c'};margin-bottom:10px">
+          <i class="ti ti-robot" style="font-size:18px;color:${S.robotOn?'var(--green)':'var(--red)'}"></i>
+          <div style="flex:1"><b style="font-size:12.5px;color:#fff;display:block">Agente ${S.robotOn?'ativo':'desligado'}</b><span style="font-size:10.5px;color:var(--txt-2)">${S.robotOn?'respondendo no automático':'sem responder ninguém'}</span></div>
+          <span class="switch ${S.robotOn?'':'off'}" onclick="toggleRobotGeral(this)"></span>
+        </div>
+        <div class="cl-sr"><i class="ti ti-search"></i><input placeholder="Buscar…"></div>
+      </div>
+      <div class="cl-convs">
+        ${convs.length?convs.map(c=>`<div class="cv ${c.id===S.activeConv?'active':''}" onclick="openConv(${c.id})">
+          <div class="cav" style="background:${avColor(c.nome||c.phone)}">${initials(c.nome||c.phone)}<span class="wa"><i class="ti ti-brand-whatsapp"></i></span></div>
+          <div class="cc"><div class="cn"><b>${c.nome||c.phone}</b><small>${new Date(c.last_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</small></div>
+            <div class="pv">${c.ai_enabled?'<b style="color:var(--blue)">IA:</b> ':''} ${c.last_message||'…'}</div></div>
+        </div>`).join(''):`<div style="color:var(--txt-3);font-size:12.5px;text-align:center;padding:40px">Nenhuma conversa ainda.<br>O agente responde automaticamente quando alguém escrever no WhatsApp.</div>`}
+      </div>
+    </div>
+    <div class="chat-main">
+      ${ac?`
+      <div class="cm-head">
+        <div class="cav" style="background:${avColor(ac.nome||ac.phone)}">${initials(ac.nome||ac.phone)}</div>
+        <div><b>${ac.nome||ac.phone}</b><small>${ac.phone||''}</small></div>
+        <div class="ha"><span class="tag ${ac.ai_enabled?'green':'amber'} dot">${ac.ai_enabled?'IA ativa':'Humano'}</span>
+          <button class="finish-btn" onclick="finishConv(${ac.id})"><i class="ti ti-circle-check"></i> Finalizar</button></div>
+      </div>
+      <div class="cm-body" id="cmBody">
+        <div class="day-sep">Histórico</div>
+        ${msgs.map(m=>msgHTML(m)).join('')||'<div style="color:var(--txt-3);font-size:12.5px;text-align:center;padding:30px">Sem mensagens ainda</div>'}
+      </div>
+      <div class="cm-foot">
+        <div class="cm-input">
+          <div class="tools"><span class="ti2"><i class="ti ti-robot"></i></span></div>
+          <div class="box"><input placeholder="Digite para enviar manualmente…" id="cmInput" onkeydown="if(event.key==='Enter')sendMsg(${ac.lead_id},${ac.id})"><i class="ti ti-mood-smile" style="color:var(--txt-3)"></i></div>
+          <button class="btn blue-s" onclick="sendMsg(${ac.lead_id},${ac.id})"><i class="ti ti-send-2"></i></button>
+        </div>
+      </div>`:
+      `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--txt-3)">Selecione uma conversa</div>`}
+    </div>
+    <div class="chat-info-panel">
+      ${ac?`<div class="ci-av" style="background:${avColor(ac.nome||ac.phone)}">${initials(ac.nome||ac.phone)}</div>
+        <b style="font-size:16px;color:#fff">${ac.nome||'Lead'}</b>
+        <div style="font-size:12px;color:var(--txt-3);margin-top:2px">${ac.phone||''}</div>
+        <div class="info-blk"><div class="il2">Etapa</div><span class="tag blue dot">${COLS.find(c=>c.id===ac.stage)?.nome||ac.stage||'—'}</span></div>
+        <div class="info-blk"><div class="il2">IA</div><span class="tag ${ac.ai_enabled?'green':'amber'} dot">${ac.ai_enabled?'Piloto automático':'Atendimento humano'}</span></div>`:''}
+    </div>
+  </div></div>`;
+  if(S.activeConv){const b=document.getElementById('cmBody');if(b)b.scrollTop=b.scrollHeight;}
+}
+function msgHTML(m){
+  if(m.sender==='ia'||m.sender==='bot')return `<div class="msg bot"><div class="bm"><span class="rb"><i class="ti ti-robot"></i></span> Agente IA</div>${m.content||''}<small>${new Date(m.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</small></div>`;
+  if(m.sender==='humano')return `<div class="msg out">${m.content||''}<small>${new Date(m.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</small></div>`;
+  return `<div class="msg in">${m.content||''}<small>${new Date(m.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</small></div>`;
+}
+async function openConv(id){S.activeConv=id;await vChat()}
+async function finishConv(id){await POST(`/api/v1/conversations/${id}/finish`).catch(()=>null);toast('Conversa finalizada');await vChat()}
+async function toggleRobotGeral(el){
+  const novo=el.classList.contains('off');
+  el.classList.toggle('off');
+  try{
+    await POST('/api/v1/robot/status',{enabled:novo});
+    S.robotOn=novo;
+    toast(novo?'Agente ativado para todos':'Agente desligado — não responde ninguém');
+    await vChat();
+  }catch(e){toast('Erro ao alterar',false);el.classList.toggle('off')}
+}
+async function sendMsg(leadId,convId){
+  const i=document.getElementById('cmInput');if(!i||!i.value.trim())return;
+  const text=i.value.trim();i.value='';
+  const lead=S.leads.find(l=>l.id===leadId)||S.convs.find(c=>c.id===convId);
+  const phone=lead?.phone||lead?.phone;
+  if(!phone){toast('Lead sem WhatsApp',false);return}
+  await POST('/api/v1/agent/run',{phone,text}).catch(e=>toast(e.message,false));
+  toast('Mensagem enviada pelo agente');
+  setTimeout(async()=>{await vChat()},1500);
+}
+
+/* ============================================================
+   AGENTE IA (prompt → automação)
+   ============================================================ */
+const NODE_META={trigger:{cls:'n-trigger',ic:'ti-player-play',k:'Gatilho'},ia:{cls:'n-ia',ic:'ti-robot',k:'Agente IA'},msg:{cls:'n-msg',ic:'ti-message-2',k:'Mensagem'},cond:{cls:'n-cond',ic:'ti-arrows-split',k:'Condição'},acao:{cls:'n-acao',ic:'ti-bolt',k:'Ação'},pms:{cls:'n-pms',ic:'ti-database-search',k:'PMS'},extrai:{cls:'n-extrai',ic:'ti-forms',k:'Extração IA'},fim:{cls:'n-fim',ic:'ti-flag',k:'Fim'}};
+
+async function vAgente(){
+  document.getElementById('main').innerHTML=`<div class="view active">
+  <div class="head"><div><h1>Agente IA</h1><div class="sub">Descreva o objetivo — a Claude cria a automação</div></div></div>
+  <div class="pad">
+    <div style="display:grid;grid-template-columns:1fr 360px;gap:18px">
+      <div>
+        <div style="background:linear-gradient(150deg,#172a4d,#101824);border:1px solid #25406b;border-radius:14px;padding:20px;margin-bottom:18px">
+          <div style="display:flex;align-items:center;gap:9px;margin-bottom:5px">
+            <div style="width:30px;height:30px;border-radius:9px;background:var(--purple);display:grid;place-items:center;color:#fff;font-size:17px"><i class="ti ti-sparkles"></i></div>
+            <b style="font-size:15px;color:#fff">Construtor por prompt</b>
+          </div>
+          <p style="font-size:12.5px;color:#9db4d6;line-height:1.55;margin-bottom:14px">Descreva o que o agente deve fazer com o lead. A Claude escreve o fluxo de automação completo.</p>
+          <div style="background:rgba(0,0,0,.3);border:1px solid #2a456e;border-radius:10px;padding:13px">
+            <textarea id="bldPrompt" style="width:100%;background:none;border:none;color:#fff;font-size:13.5px;resize:none;min-height:100px;line-height:1.55" placeholder="Ex: Quando o lead pedir valores, extraia as datas, consulte o PMS, envie a cotação com fotos. Se o valor passar de R$ 5.000, passe para um atendente humano."></textarea>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+            <button class="pp-gen" onclick="gerarFluxo()" style="flex:1;max-width:200px"><i class="ti ti-bolt"></i> Gerar automação</button>
+            <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:#9db4d6"><input type="checkbox" id="salvarAuto"> Salvar no CRM</label>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:12px">
+            ${['Qualificar e taguear o lead','Cotar consultando o PMS','Reativar lead frio após 48h','Fechar com contrato e pagamento'].map(c=>`<span style="font-size:11px;background:rgba(255,255,255,.06);border:1px solid #2a456e;color:#9db4d6;border-radius:20px;padding:5px 10px;cursor:pointer" onclick="document.getElementById('bldPrompt').value=this.textContent">${c}</span>`).join('')}
+          </div>
+        </div>
+        <div class="gen-status" id="genStatus"><span class="sp"></span> Claude está escrevendo a automação…</div>
+        <div class="flow" id="flowCanvas"></div>
+      </div>
+      <div>
+        <div class="card cpad" style="margin-bottom:14px">
+          <h2 style="font-size:15px;margin-bottom:12px">Personalidade do agente</h2>
+          <div class="fld"><label>Modelo</label><select><option>claude-opus-4-8</option><option>claude-sonnet-4-6</option><option>claude-haiku-4-5</option></select></div>
+          <div class="fld"><label>Tom de voz</label><select><option>Acolhedor e caloroso</option><option>Formal e objetivo</option><option>Descontraído</option></select></div>
+          <button class="btn blue" style="width:100%;justify-content:center" onclick="toast('Configurações salvas')"><i class="ti ti-device-floppy"></i> Salvar</button>
+        </div>
+        <div class="card cpad" style="background:var(--surf-2)">
+          <h2 style="font-size:15px;margin-bottom:10px">Habilidades ativas</h2>
+          ${[['ti-brand-whatsapp','Responder no WhatsApp','var(--wa)'],['ti-database-search','Consultar PMS','var(--teal)'],['ti-cash','Cotar e negociar','var(--amber)'],['ti-file-text','Gerar contrato','var(--purple)'],['ti-link','Link de pagamento','var(--blue)'],['ti-target-arrow','Qualificar lead','var(--green)']].map(s=>`<div style="display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--line)"><i class="ti ${s[0]}" style="font-size:18px;color:${s[2]}"></i><span style="flex:1;font-size:12.5px">${s[1]}</span><span class="switch" onclick="this.classList.toggle('off')"></span></div>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div></div>`;
+}
+
+async function gerarFluxo(){
+  const p=document.getElementById('bldPrompt')?.value?.trim();
+  if(!p){toast('Descreva o objetivo',false);return}
+  const salvar=document.getElementById('salvarAuto')?.checked;
+  const st=document.getElementById('genStatus');st.classList.add('show');
+  document.getElementById('flowCanvas').innerHTML='';
+  try{
+    const r=await POST('/api/v1/automations/generate',{prompt:p,salvar});
+    st.classList.remove('show');
+    if(r.flow?.nodes){S.bNodes=r.flow.nodes;renderFlow();toast('Automação gerada'+(salvar?' e salva':' — marque "Salvar no CRM" para persistir'));}
+    else{toast('A IA não retornou um fluxo válido',false)}
+  }catch(e){st.classList.remove('show');toast('Erro ao gerar: '+e.message,false)}
+}
+let _dl=0;
+function renderFlow(){const c=document.getElementById('flowCanvas');if(!c)return;_dl=0;c.innerHTML=renderNodes(S.bNodes)+`<button class="add-step" onclick="toast('Adicionar bloco')" title="Adicionar"><i class="ti ti-plus"></i></button>`}
+function renderNodes(nodes){let h='';nodes.forEach((n,i)=>{if(i>0)h+=`<div class="connector"></div>`;h+=nodeHTML(n);if(n.tipo==='cond'&&n.branches){h+=`<div class="connector"></div><div class="branch">${n.branches.map(br=>`<div class="branch-col"><span class="branch-lbl tag ${br.color==='green'?'green':br.color==='red'?'red':'amber'}">${br.lbl}</span>${renderNodes(br.nodes||[])}</div>`).join('')}</div>`}});return h}
+function nodeHTML(n){const m=NODE_META[n.tipo]||NODE_META.msg;_dl+=0.08;const body=n.bub?`<div class="nbody"><div class="bub">${n.bub}</div></div>`:(n.sub?`<div class="nbody">${n.sub}</div>`:'');return `<div class="node ${m.cls}" style="animation-delay:${_dl.toFixed(2)}s"><div class="nh"><div class="ic"><i class="ti ${m.ic}"></i></div><div class="nt"><span class="k">${m.k}</span><b>${n.titulo}</b></div><i class="ti ti-pencil ed" onclick="toast('Editar: ${n.titulo}')"></i></div>${body}</div>`}
+
+async function vBuilder(){
+  document.getElementById('main').innerHTML=`<div class="view active" style="height:100vh">
+  <div class="builder">
+    <div class="bld-side">
+      <div class="bsh"><div class="bk" onclick="go('automations')"><i class="ti ti-arrow-left"></i> Voltar</div>
+        <h3 style="font-size:16px">${S.bName}</h3></div>
+      <div class="prompt-panel">
+        <div class="pp-card"><div class="pt"><div class="rb"><i class="ti ti-sparkles"></i></div><b>Construir com a Claude</b></div>
+          <p>Descreva o objetivo e a Claude monta o fluxo.</p>
+          <div class="pp-input"><textarea id="bldPrompt" placeholder="Descreva o objetivo com o lead…"></textarea></div>
+          <button class="pp-gen" onclick="gerarFluxo()"><i class="ti ti-bolt"></i> Gerar</button>
+          <div class="pp-chips">${['Qualificar lead','Cotar com PMS','Fechar venda','Reativar frio'].map(c=>`<span class="c" onclick="document.getElementById('bldPrompt').value=this.textContent">${c}</span>`).join('')}</div>
+        </div>
+        <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);font-weight:700;margin-bottom:8px">Adicionar bloco</div>
+        <div class="palette">${[['msg','ti-message-2','var(--blue)','Mensagem'],['cond','ti-arrows-split','var(--amber)','Condição'],['ia','ti-robot','var(--purple)','Resposta IA'],['pms','ti-database-search','var(--teal)','Consultar PMS']].map(s=>`<div class="pal" onclick="addBloco('${s[0]}')"><i class="ti ${s[1]}" style="color:${s[2]}"></i> ${s[3]}</div>`).join('')}</div>
+      </div>
+    </div>
+    <div class="bld-canvas">
+      <div class="canvas-top"><span class="nm">${S.bName}</span>
+        <div class="right"><button class="ibtn" onclick="toast('Testar')"><i class="ti ti-eye"></i> Testar</button><button class="btn blue-s" onclick="toast('Salvo')"><i class="ti ti-device-floppy"></i> Salvar</button></div></div>
+      <div class="gen-status" id="genStatus"><span class="sp"></span> Gerando…</div>
+      <div class="flow" id="flowCanvas"></div>
+    </div>
+  </div></div>`;
+  renderFlow();
+}
+function addBloco(tipo){const m={msg:{tipo:'msg',titulo:'Mensagem',bub:'Escreva a mensagem aqui…'},cond:{tipo:'cond',titulo:'Condição',sub:'Defina o critério',branches:[{lbl:'Sim',color:'green',nodes:[{tipo:'fim',titulo:'Fim'}]},{lbl:'Não',color:'red',nodes:[{tipo:'fim',titulo:'Fim'}]}]},ia:{tipo:'ia',titulo:'Resposta IA',sub:'Claude responde com base no contexto'},pms:{tipo:'pms',titulo:'Consultar PMS',sub:'GET /disponibilidade'}}[tipo];if(m){S.bNodes.push(m);renderFlow();toast('Bloco adicionado')}}
+
+/* ============================================================
+   CLIENTES (boas-vindas / hóspedes confirmados)
+   ============================================================ */
+function brlCents(c){return c?(Number(c)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'—'}
+function fmtData(d){if(!d)return '—';const s=String(d).slice(0,10).split('-');if(s.length===3)return `${s[2]}/${s[1]}`;return '—'}
+
+async function vClientes(){
+  const clientes=await GET('/api/v1/clientes').catch(()=>[]);
+  S.clientes=clientes;
+  const receita=clientes.reduce((a,c)=>a+Number(c.receita_cents||0),0);
+  document.getElementById('main').innerHTML=`<div class="view active">
+  <div class="head"><div><h1>Clientes</h1><div class="sub">Hóspedes confirmados · recepção e boas-vindas</div></div>
+    <div class="right">
+      <button class="btn ghost" onclick="modalImportar()"><i class="ti ti-download"></i> Importar do PMS</button>
+    </div></div>
+  <div class="pad">
+    <div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:18px">
+      ${kpiH('Hóspedes','ti-user-check',clientes.length+' confirmados',clientes.length,'#2dd4bf')}
+      ${kpiH('Receita prevista','ti-cash','no período',brlCents(receita),'#34d399')}
+      ${kpiH('Boas-vindas enviadas','ti-send',clientes.filter(c=>c.boas_vindas_enviada).length+' de '+clientes.length,clientes.filter(c=>c.boas_vindas_enviada).length,'#4f8ff7')}
+    </div>
+    <div class="tbl-card">
+      <table class="tbl">
+        <thead><tr><th>Hóspede</th><th>Contato</th><th>Qualificação</th><th>Período</th><th>Noites</th><th>Pessoas</th><th>Receita</th><th>Boas-vindas</th></tr></thead>
+        <tbody>${clientes.map(c=>`<tr style="cursor:pointer" onclick='abrirCliente(${c.id})'>
+          <td><div class="ucell"><div class="av" style="background:${avColor(c.nome)}">${initials(c.nome)}</div><div><b>${c.nome}</b><small>${c.acomodacao||'—'}</small></div></div></td>
+          <td style="color:var(--txt-2)">${c.phone?`<i class="ti ti-brand-whatsapp" style="color:var(--wa)"></i> ${c.phone}`:'<span class="tag amber dot" style="font-size:10px">sem telefone</span>'}</td>
+          <td><span class="tag ${c.canal==='Airbnb'?'red':c.canal==='Booking.com'?'blue':'gray'} dot">${c.qualificacao||c.canal}</span></td>
+          <td style="color:var(--txt-2)">${fmtData(c.check_in)} → ${fmtData(c.check_out)}</td>
+          <td>${c.noites||'—'}</td>
+          <td>${c.pessoas||'—'}</td>
+          <td><b style="color:var(--green)">${brlCents(c.receita_cents)}</b></td>
+          <td>${c.boas_vindas_enviada?'<span class="tag green dot">enviada</span>':`<button class="btn sm blue" onclick="event.stopPropagation();enviarBoasVindas(${c.id})"><i class="ti ti-send-2"></i> Enviar</button>`}</td>
+        </tr>`).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--txt-3);padding:40px">Nenhum cliente importado. Clique em "Importar do PMS" para buscar as chegadas.</td></tr>'}</tbody>
+      </table>
+    </div>
+  </div></div>`;
+}
+
+function modalImportar(){
+  const hoje=new Date().toISOString().split('T')[0];
+  const em30=new Date(Date.now()+30*864e5).toISOString().split('T')[0];
+  openModal(`<div class="modal-h"><div class="ic"><i class="ti ti-download"></i></div><div><h3>Importar chegadas do PMS</h3><p>Busca hóspedes confirmados que fazem check-in no período</p></div><span class="x" onclick="closeModal()"><i class="ti ti-x"></i></span></div>
+  <div class="modal-b">
+    <div class="fr"><div class="fld"><label>Check-in de</label><input type="date" id="impInicio" value="${hoje}"></div>
+      <div class="fld"><label>Até</label><input type="date" id="impFim" value="${em30}"></div></div>
+    <p style="font-size:12px;color:var(--txt-2)">Apenas reservas confirmadas (status reservation) serão importadas. Pré-reservas são ignoradas.</p>
+  </div>
+  <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn blue-s" id="btnImp" onclick="doImportar()"><i class="ti ti-download"></i> Importar</button></div>`);
+}
+async function doImportar(){
+  const start_date=document.getElementById('impInicio')?.value;
+  const end_date=document.getElementById('impFim')?.value;
+  if(!start_date||!end_date){toast('Defina as datas',false);return}
+  const btn=document.getElementById('btnImp');if(btn){btn.innerHTML='<span class="sp" style="width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin .7s linear infinite"></span> Buscando…';btn.disabled=true}
+  try{
+    const r=await POST('/api/v1/clientes/importar',{start_date,end_date});
+    closeModal();toast(`${r.total} hóspede(s) importado(s)`);await vClientes();
+  }catch(e){toast('Erro: '+e.message,false);if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-download"></i> Importar'}}
+}
+
+async function abrirCliente(id){
+  const c=S.clientes.find(x=>x.id===id);if(!c)return;
+  openModal(`<div class="modal-h"><div class="ic" style="background:${avColor(c.nome)};color:#fff">${initials(c.nome)}</div>
+    <div><h3>${c.nome}</h3><p>${c.qualificacao||c.canal} · ${c.acomodacao||''}</p></div><span class="x" onclick="closeModal()"><i class="ti ti-x"></i></span></div>
+  <div class="modal-b">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div class="info-blk" style="border:none;padding:0"><div class="il2">Check-in</div><b style="color:#fff">${fmtData(c.check_in)}</b></div>
+      <div class="info-blk" style="border:none;padding:0"><div class="il2">Check-out</div><b style="color:#fff">${fmtData(c.check_out)}</b></div>
+      <div class="info-blk" style="border:none;padding:0"><div class="il2">Noites</div><b style="color:#fff">${c.noites||'—'}</b></div>
+      <div class="info-blk" style="border:none;padding:0"><div class="il2">Pessoas</div><b style="color:#fff">${c.pessoas||'—'}</b></div>
+      <div class="info-blk" style="border:none;padding:0"><div class="il2">Receita</div><b style="color:var(--green)">${brlCents(c.receita_cents)}</b></div>
+      <div class="info-blk" style="border:none;padding:0"><div class="il2">Canal</div><b style="color:#fff">${c.canal}</b></div>
+    </div>
+    <div class="fld"><label>WhatsApp ${c.phone?'':'(preencha para enviar boas-vindas)'}</label><input id="cliPhone" value="${c.phone||''}" placeholder="5573999999999"></div>
+    <div style="display:flex;align-items:center;gap:9px;padding:10px;background:var(--surf-2);border-radius:9px;margin-top:6px">
+      <i class="ti ti-robot" style="font-size:18px;color:var(--purple)"></i>
+      <span style="flex:1;font-size:12.5px">Boas-vindas automática ao chegar a data</span>
+      <span class="switch ${c.auto_boas_vindas?'':'off'}" onclick="toggleAutoBV(${c.id},this)"></span>
+    </div>
+  </div>
+  <div class="modal-foot">
+    <button class="btn ghost" style="color:var(--red);border-color:var(--red-soft)" onclick="deleteCliente(${c.id})"><i class="ti ti-trash"></i> Apagar</button>
+    <button class="btn ghost" onclick="salvarPhone(${c.id})"><i class="ti ti-device-floppy"></i> Salvar</button>
+    <button class="btn blue-s" onclick="enviarBoasVindas(${c.id})"><i class="ti ti-send-2"></i> Enviar boas-vindas</button>
+  </div>`);
+}
+async function salvarPhone(id){
+  const phone=document.getElementById('cliPhone')?.value?.trim();
+  await PATCH(`/api/v1/clientes/${id}`,{phone}).catch(e=>toast(e.message,false));
+  closeModal();toast('Telefone salvo');await vClientes();
+}
+async function toggleAutoBV(id,el){
+  const on=el.classList.contains('off');
+  el.classList.toggle('off');
+  await PATCH(`/api/v1/clientes/${id}`,{auto_boas_vindas:on}).catch(()=>null);
+  toast(on?'Boas-vindas automática ativada':'Boas-vindas automática desativada');
+}
+async function enviarBoasVindas(id){
+  const c=S.clientes.find(x=>x.id===id);
+  const phoneInput=document.getElementById('cliPhone');
+  if(phoneInput&&phoneInput.value.trim()&&(!c||c.phone!==phoneInput.value.trim())){
+    await PATCH(`/api/v1/clientes/${id}`,{phone:phoneInput.value.trim()}).catch(()=>null);
+  }
+  if(!confirm('Enviar mensagem de boas-vindas para este hóspede agora?'))return;
+  try{
+    await POST(`/api/v1/clientes/${id}/boas-vindas`);
+    closeModal();toast('Boas-vindas enviada');await vClientes();
+  }catch(e){toast('Erro: '+e.message,false)}
+}
+async function deleteCliente(id){
+  if(!confirm('Apagar este cliente do CRM? (não afeta o PMS)'))return;
+  await api('DELETE',`/api/v1/clientes/${id}`).catch(e=>toast(e.message,false));
+  closeModal();toast('Cliente apagado');await vClientes();
+}
+
+/* ============================================================
+   CONFIG
+   ============================================================ */
+async function vConfig(){
+  document.getElementById('main').innerHTML=`<div class="view active">
+  <div class="head"><div><h1>Configurações</h1><div class="sub">Integrações e régua de automação</div></div></div>
+  <div class="pad">
+    <div class="g2" style="align-items:start">
+      <div>
+        <div class="card cpad" style="margin-bottom:14px">
+          <h2 style="font-size:16px;margin-bottom:5px">Régua de automação</h2>
+          <p style="font-size:12.5px;color:var(--txt-2);margin-bottom:4px">Quanto do atendimento a IA conduz sozinha.</p>
+          <div class="strack" id="strack"><div class="sfill" id="sfill" style="width:${S.automPct}%"></div><div class="sknob" id="sknob" style="left:${S.automPct}%"><div class="sval" id="sval">${S.automPct}%</div></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--txt-3);margin-bottom:14px"><span>0% manual</span><span>100% IA</span></div>
+          <div id="reguaTxt" style="padding:12px;background:var(--blue-soft);border:1px solid #233859;border-radius:9px;font-size:12.5px;color:#9db4d6;line-height:1.6"></div>
+        </div>
+        <div class="card cpad">
+          <h2 style="font-size:15px;margin-bottom:12px">Integrações</h2>
+          ${[['ti-brand-whatsapp','WhatsApp (Z-API)','Conectado','var(--wa)',true],['ti-sparkles','Claude API','Conectado · Opus 4.8','var(--blue)',true],['ti-building-cottage','Hospedin PMS','Conectado','var(--teal)',true],['ti-cash','Pagamento','Não conectado','var(--txt-3)',false]].map(i=>`<div class="integ"><div class="lg" style="background:${i[3]}"><i class="ti ${i[0]}"></i></div><div class="id"><b>${i[1]}</b><span>${i[2]}</span></div>${i[4]?'<span class="tag green dot">Ativo</span>':'<button class="btn blue sm">Conectar</button>'}</div>`).join('')}
+        </div>
+      </div>
+      <div class="card cpad">
+        <h2 style="font-size:15px;margin-bottom:12px">API aberta do CRM</h2>
+        <div style="font-family:monospace;font-size:12px;color:var(--teal);background:var(--bg-2);padding:14px;border-radius:9px;line-height:2">
+          <div><span style="color:var(--amber)">POST</span> /api/v1/agent/run</div>
+          <div><span style="color:var(--amber)">POST</span> /api/v1/automations/generate</div>
+          <div><span style="color:var(--amber)">GET</span> /api/v1/leads</div>
+          <div><span style="color:var(--amber)">GET</span> /api/v1/conversations</div>
+          <div><span style="color:var(--amber)">POST</span> /webhooks/whatsapp</div>
+        </div>
+        <div style="margin-top:13px"><label style="font-size:11px;color:var(--txt-3);display:block;margin-bottom:6px">URL DO BACKEND</label>
+          <div style="display:flex;gap:8px"><input value="${API_URL}" readonly style="flex:1;height:36px;background:var(--bg-2);border:1px solid var(--line-2);border-radius:8px;padding:0 11px;font-family:monospace;font-size:11.5px;color:var(--txt-2)"><button class="ibtn" onclick="navigator.clipboard.writeText('${API_URL}');toast('URL copiada')"><i class="ti ti-copy"></i></button></div>
+        </div>
+      </div>
+    </div>
+  </div></div>`;
+  bindSlider();
+}
+function reguaTxt(p){return `<b style="color:#fff">${p}% conduzido pela IA</b><br>${p<100?`Os ${100-p}% restantes vão para atendimento humano.`:'Tudo em piloto automático.'}`}
+function bindSlider(){
+  const track=document.getElementById('strack');const t=document.getElementById('reguaTxt');if(t)t.innerHTML=reguaTxt(S.automPct);
+  if(!track)return;const fill=document.getElementById('sfill'),knob=document.getElementById('sknob'),val=document.getElementById('sval');let drag=false;
+  function set(e){const r=track.getBoundingClientRect();let x=((e.touches?e.touches[0].clientX:e.clientX)-r.left)/r.width;x=Math.max(0,Math.min(1,x));const p=Math.round(x*100);S.automPct=p;fill.style.width=p+'%';knob.style.left=p+'%';val.textContent=p+'%';if(t)t.innerHTML=reguaTxt(p)}
+  knob.addEventListener('mousedown',()=>drag=true);track.addEventListener('click',set);
+  window.addEventListener('mousemove',e=>{if(drag)set(e)});window.addEventListener('mouseup',()=>drag=false);
+}
+</script>
+</body>
+</html>

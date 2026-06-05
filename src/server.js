@@ -1,15 +1,19 @@
 import express from 'express';
 import cors from 'cors';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { env } from './config/env.js';
 import routes from './routes/index.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
+app.use(express.static(join(__dirname, '../public')));
 
-app.get('/', (req, res) => res.json({ service: 'Vila Mundaí CRM API', status: 'online' }));
 app.use('/', routes);
 
 app.use(notFound);

@@ -506,8 +506,23 @@ function bizCard(b){return `<div class="biz" draggable="true" data-id="${b.id}" 
     <div style="flex:1;min-width:0"><div class="nm">${b.nome||b.phone}</div><div class="ph">${b.phone}</div></div>
     ${b.ai_enabled?'<span class="tag purple dot" style="font-size:10px">IA</span>':'<i class="ti ti-hand-stop" style="color:var(--amber);font-size:14px"></i>'}</div>
   <div class="meta">${(b.tags||[]).map(t=>`<span class="tag gray" style="font-size:10px">${t}</span>`).join('')}</div>
-  <div class="ft"><i class="ti ti-calendar"></i> ${b.checkin||'—'}<span class="vl">${b.valor_cotado?brl(b.valor_cotado):''}</span></div>
+  <div class="ft"><i class="ti ti-calendar"></i> ${b.checkin||'—'}<span class="vl">${b.valor_cotado?brl(b.valor_cotado):''}</span>
+    <button id="ai-btn-${b.id}" onclick="event.stopPropagation();toggleAICard(${b.id},${b.ai_enabled})" title="${b.ai_enabled?'IA ativa — clique para pausar':'IA pausada — clique para ativar'}" style="background:none;border:none;cursor:pointer;padding:2px;margin-left:4px;line-height:1">
+      <i class="ti ti-robot" style="font-size:15px;color:${b.ai_enabled?'var(--green)':'var(--red)'}"></i>
+    </button>
+  </div>
 </div>`}
+async function toggleAICard(id,current){
+  const next=!current;
+  await PATCH(`/api/v1/leads/${id}/ai`,{ai_enabled:next}).catch(e=>{toast(e.message,false);return});
+  toast(next?'IA reativada':'IA pausada');
+  const btn=document.getElementById(`ai-btn-${id}`);
+  if(btn){
+    btn.querySelector('i').style.color=next?'var(--green)':'var(--red)';
+    btn.setAttribute('title',next?'IA ativa — clique para pausar':'IA pausada — clique para ativar');
+    btn.onclick=function(e){e.stopPropagation();toggleAICard(id,next)};
+  }
+}
 function bindKanban(){
   document.querySelectorAll('.biz').forEach(c=>{
     c.addEventListener('dragstart',()=>{S.drag=+c.dataset.id;c.classList.add('drag')});

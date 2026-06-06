@@ -55,18 +55,19 @@ export async function metaLeadsWebhook(req, res) {
   }
 
   try {
-    // Limpa o telefone: remove "p:+", caracteres não numéricos, garante prefixo 55
-    let phone = String(body.phone_number).replace(/\D/g, '');
+    // Aceita tanto o formato do Sheets (telefone/nome_completo) quanto o padrão Meta
+    const phoneRaw = body.telefone || body.phone_number || '';
+    let phone = String(phoneRaw).replace(/\D/g, '');
     if (!phone.startsWith('55')) phone = '55' + phone;
     if (phone.length < 12) {
-      console.warn('[meta-lead] telefone inválido após limpeza:', body.phone_number, '→', phone);
-      return res.status(400).json({ ok: false, error: `phone_number inválido: "${body.phone_number}"` });
+      console.warn('[meta-lead] telefone inválido após limpeza:', phoneRaw, '→', phone);
+      return res.status(400).json({ ok: false, error: `telefone inválido: "${phoneRaw}"` });
     }
 
-    const nome     = body.full_name  || null;
-    const email    = body.email      || null;
+    const nome     = body.nome_completo || body.full_name  || null;
+    const email    = body.email         || null;
     const campanha = body.campaign_name || '';
-    const anuncio  = body.ad_name      || '';
+    const anuncio  = body.ad_name       || '';
 
     // Converte datas de dd/mm/yyyy para yyyy-mm-dd
     function parseDate(str) {
@@ -82,11 +83,15 @@ export async function metaLeadsWebhook(req, res) {
     const guests   = guestsRaw ? (parseInt(guestsRaw, 10) || null) : null;
     const tags     = [campanha, anuncio].filter(Boolean);
 
-    // Guarda campanha e anúncio no campo extra para rastreamento dedicado
+    // Guarda dados de rastreamento no campo extra
     const extra = {};
-    if (campanha) extra.campaign_name = campanha;
-    if (anuncio)  extra.ad_name       = anuncio;
-    if (body.platform) extra.platform = body.platform;
+    if (campanha)            extra.campaign_name = campanha;
+    if (body.campaign_id)    extra.campaign_id   = body.campaign_id;
+    if (anuncio)             extra.ad_name       = anuncio;
+    if (body.ad_id)          extra.ad_id         = body.ad_id;
+    if (body.adset_name)     extra.adset_name    = body.adset_name;
+    if (body.form_name)      extra.form_name     = body.form_name;
+    if (body.platform)       extra.platform      = body.platform;
 
     // Upsert: cria ou atualiza, mesclando tags sem duplicar
     const { rows } = await query(

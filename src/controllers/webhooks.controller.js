@@ -58,6 +58,10 @@ export async function metaLeadsWebhook(req, res) {
     // Limpa o telefone: remove "p:+", caracteres não numéricos, garante prefixo 55
     let phone = String(body.phone_number).replace(/\D/g, '');
     if (!phone.startsWith('55')) phone = '55' + phone;
+    if (phone.length < 12) {
+      console.warn('[meta-lead] telefone inválido após limpeza:', body.phone_number, '→', phone);
+      return res.status(400).json({ ok: false, error: `phone_number inválido: "${body.phone_number}"` });
+    }
 
     const nome     = body.full_name  || null;
     const email    = body.email      || null;

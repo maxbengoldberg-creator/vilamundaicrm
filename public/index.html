@@ -646,10 +646,10 @@ async function vLeads(){
           <td><div class="ucell"><div class="av" style="background:${avColor(l.nome)}">${initials(l.nome)}</div><div><b>${l.nome||'—'}</b></div></div></td>
           <td style="color:var(--txt-2)"><i class="ti ti-brand-whatsapp" style="color:var(--wa)"></i> ${l.phone}</td>
           <td>${l.origem==='meta_ads'
-            ?`<div style="display:flex;flex-direction:column;gap:2px">
-                <span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--amber)"><i class="ti ti-brand-meta" style="font-size:12px"></i>Meta Ads</span>
-                ${lextra.campaign_name?`<span style="font-size:10px;color:var(--txt-2)">${lextra.campaign_name}</span>`:''}
-                ${lextra.ad_name?`<span style="font-size:10px;color:var(--txt-3)">${lextra.ad_name}</span>`:''}
+            ?`<div style="display:flex;flex-direction:column;gap:2px" title="${[lextra.campaign_name,lextra.ad_name].filter(Boolean).join('\n')||'sem dados de campanha'}">
+                <span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--amber);cursor:default"><i class="ti ti-brand-meta" style="font-size:12px"></i>Meta Ads</span>
+                ${lextra.campaign_name?`<span style="font-size:10px;color:var(--txt-2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lextra.campaign_name}</span>`:'<span style="font-size:10px;color:var(--txt-3)">sem campanha</span>'}
+                ${lextra.ad_name?`<span style="font-size:10px;color:var(--txt-3);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lextra.ad_name}</span>`:''}
               </div>`
             :`<span style="font-size:12px;color:var(--txt-3)">${l.origem||'—'}</span>`
           }</td>

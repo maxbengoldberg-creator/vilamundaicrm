@@ -188,7 +188,11 @@ export async function handleIncoming({ phone, text, pushName }) {
   }
 
   if (finalText && finalText.trim()) {
-    await zapi.sendText(phone, finalText);
+    const blocos = finalText.split(/\n\n+/).map(b => b.trim()).filter(Boolean);
+    for (let i = 0; i < blocos.length; i++) {
+      if (i > 0) await delay(4000);
+      await zapi.sendText(phone, blocos[i]);
+    }
     await Conversation.touch(conv.id, finalText);
   }
   return { ok: true, reply: finalText };

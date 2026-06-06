@@ -523,7 +523,10 @@ function bizCard(b){return `<div class="biz" draggable="true" data-id="${b.id}" 
     ${aiBadgesHtml(b.id,b.ai_enabled)}</div>
   <div class="meta">${(b.tags||[]).map(t=>`<span class="tag gray" style="font-size:10px">${t}</span>`).join('')}</div>
   <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--txt-2);border-top:1px solid var(--line);padding-top:8px;margin-top:4px">
-    <span style="display:flex;align-items:center;gap:4px"><i class="ti ti-calendar"></i> ${b.checkin||'—'}</span>
+    <span style="display:flex;align-items:center;gap:4px">
+      ${b.origem==='meta_ads'?`<i class="ti ti-brand-meta" style="font-size:13px;color:#fbbf24" title="Lead Meta Ads"></i>`:`<i class="ti ti-calendar"></i>`}
+      ${b.checkin||'—'}
+    </span>
     <span style="display:flex;align-items:center;gap:6px">
       ${b.valor_cotado?`<b style="color:#34d399;font-weight:700">${brl(b.valor_cotado)}</b>`:''}
       ${b.total_custo_brl&&Number(b.total_custo_brl)>0?`<span style="font-size:9.5px;color:#34d399;opacity:.7" title="Custo IA acumulado">R$${Number(b.total_custo_brl).toFixed(2)}</span>`:''}
@@ -578,13 +581,21 @@ function bindKanban(){
 }
 async function abrirLead(id){const b=await GET("/api/v1/leads/"+id).catch(()=>S.leads.find(x=>x.id===id));if(!b)return;S.leads=S.leads.map(x=>x.id===id?b:x);modalBiz2(b);}
 function modalBiz2(b){
-  
+  const isMeta=b.origem==='meta_ads';
+  const tags=(b.tags||[]).filter(Boolean);
   openModal(`<div class="modal-h"><div class="ic" style="background:${avColor(b.nome)};color:#fff">${initials(b.nome)}</div>
-    <div><h3>${b.nome||b.phone}</h3><p>${b.phone}</p></div><span class="x" onclick="closeModal()"><i class="ti ti-x"></i></span></div>
+    <div><h3>${b.nome||b.phone}</h3><p>${b.phone}${b.email?` · ${b.email}`:''}</p></div><span class="x" onclick="closeModal()"><i class="ti ti-x"></i></span></div>
     <div class="modal-b">
+      ${isMeta?`<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:8px;margin-bottom:12px;font-size:12px;color:var(--amber)"><i class="ti ti-brand-meta" style="font-size:16px"></i><span>Lead do Meta Ads</span>${tags.length?`<span style="margin-left:auto;color:var(--txt-2)">${tags.join(' · ')}</span>`:''}  </div>`:''}
       <div class="fr"><div class="fld"><label>Etapa</label><select onchange="moverBiz(${b.id},this.value)">${COLS.map(c=>`<option ${c.id===b.stage?'selected':''} value="${c.id}">${c.nome}</option>`).join('')}</select></div>
-        <div class="fld"><label>Valor</label><input value="${b.valor_cotado||''}" placeholder="R$"></div></div>
+        <div class="fld"><label>Valor cotado</label><input value="${b.valor_cotado||''}" placeholder="R$"></div></div>
+      ${(b.checkin||b.checkout||b.guests)?`<div class="fr">
+        ${b.checkin?`<div class="fld"><label>Check-in</label><input value="${b.checkin}" readonly style="color:var(--txt-2)"></div>`:''}
+        ${b.checkout?`<div class="fld"><label>Check-out</label><input value="${b.checkout}" readonly style="color:var(--txt-2)"></div>`:''}
+        ${b.guests?`<div class="fld"><label>Hóspedes</label><input value="${b.guests}" readonly style="color:var(--txt-2)"></div>`:''}
+      </div>`:''}
       <div class="fld"><label>IA ativa</label><select onchange="toggleAIBiz(${b.id},this.value)"><option ${b.ai_enabled?'selected':''} value="true">Sim — piloto automático</option><option ${!b.ai_enabled?'selected':''} value="false">Não — atendimento humano</option></select></div>
+      ${tags.length&&!isMeta?`<div class="fld"><label>Tags</label><div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px">${tags.map(t=>`<span class="tag gray">${t}</span>`).join('')}</div></div>`:''}
     </div>
     <div class="modal-foot"><button class="btn ghost" style="color:var(--red);border-color:var(--red-soft)" onclick="deleteLead(${b.id})"><i class="ti ti-trash"></i> Apagar</button><button class="btn ghost" onclick="closeModal()">Fechar</button><button class="btn blue" onclick="closeModal();go('chat')"><i class="ti ti-message-circle"></i> Abrir conversa</button></div>`);
 }
@@ -620,7 +631,7 @@ async function vLeads(){
       <table class="tbl">
         <thead><tr><th>Lead</th><th>WhatsApp</th><th>Etapa</th><th>Score</th><th>Atendimento</th><th>Valor</th><th>Custo IA</th></tr></thead>
         <tbody>${leads.map(l=>`<tr onclick="abrirLead(${l.id})">
-          <td><div class="ucell"><div class="av" style="background:${avColor(l.nome)}">${initials(l.nome)}</div><div><b>${l.nome||'—'}</b><small>${l.origem||'—'}</small></div></div></td>
+          <td><div class="ucell"><div class="av" style="background:${avColor(l.nome)}">${initials(l.nome)}</div><div><b>${l.nome||'—'}</b><small style="display:flex;align-items:center;gap:3px">${l.origem==='meta_ads'?'<i class="ti ti-brand-meta" style="color:#fbbf24;font-size:11px"></i>':''} ${l.origem||'—'}</small></div></div></td>
           <td style="color:var(--txt-2)"><i class="ti ti-brand-whatsapp" style="color:var(--wa)"></i> ${l.phone}</td>
           <td><span class="tag blue dot">${COLS.find(c=>c.id===l.stage)?.nome||l.stage}</span></td>
           <td><div style="display:flex;align-items:center;gap:7px"><div style="width:48px;height:5px;background:var(--surf-3);border-radius:20px;overflow:hidden"><div style="height:100%;width:${l.qual_score||0}%;background:${(l.qual_score||0)>70?'var(--green)':(l.qual_score||0)>40?'var(--amber)':'var(--txt-3)'};"></div></div><span style="font-size:11px;color:var(--txt-2)">${l.qual_score||0}%</span></div></td>

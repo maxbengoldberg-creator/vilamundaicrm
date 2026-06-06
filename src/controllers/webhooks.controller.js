@@ -85,6 +85,7 @@ export async function metaLeadsWebhook(req, res) {
        ON CONFLICT (phone) DO UPDATE SET
          nome     = COALESCE(EXCLUDED.nome,     leads.nome),
          email    = COALESCE(EXCLUDED.email,    leads.email),
+         origem   = 'meta_ads',
          tags     = (SELECT array_agg(DISTINCT t) FROM unnest(leads.tags || EXCLUDED.tags) t),
          checkin  = COALESCE(EXCLUDED.checkin,  leads.checkin),
          checkout = COALESCE(EXCLUDED.checkout, leads.checkout),

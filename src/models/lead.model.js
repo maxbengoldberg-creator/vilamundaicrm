@@ -22,7 +22,7 @@ export async function create({ phone, nome = null, origem = 'whatsapp' }) {
 
 // Update parcial seguro: só altera as colunas permitidas que vierem no patch.
 const ALLOWED = new Set([
-  'nome', 'email', 'stage', 'qual_score', 'tags', 'checkin', 'checkout',
+  'nome', 'email', 'origem', 'stage', 'qual_score', 'tags', 'checkin', 'checkout',
   'guests', 'acomodacao', 'valor_cotado', 'ai_enabled', 'assigned_to', 'extra',
 ]);
 

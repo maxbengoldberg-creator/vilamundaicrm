@@ -146,7 +146,9 @@ export async function handleIncoming({ phone, text, pushName }) {
   await Message.create({ conversation_id: conv.id, role: 'user', content: text, sender: 'lead' });
   await Conversation.touch(conv.id, text);
 
-  if (isMsgCurta(text)) await delay(15000); else await delay(5000);
+  if (isFirstMessage) await delay(40000);
+  else if (isMsgCurta(text)) await delay(15000);
+  else await delay(5000);
 
   const history = await Message.listRecent(conv.id, 20);
   let messages = toClaudeMessages(history);

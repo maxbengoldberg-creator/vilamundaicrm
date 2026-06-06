@@ -594,8 +594,13 @@ function modalBiz2(b){
         ${b.checkout?`<div class="fld"><label>Check-out</label><input value="${b.checkout}" readonly style="color:var(--txt-2)"></div>`:''}
         ${b.guests?`<div class="fld"><label>Hóspedes</label><input value="${b.guests}" readonly style="color:var(--txt-2)"></div>`:''}
       </div>`:''}
-      <div class="fld"><label>IA ativa</label><select onchange="toggleAIBiz(${b.id},this.value)"><option ${b.ai_enabled?'selected':''} value="true">Sim — piloto automático</option><option ${!b.ai_enabled?'selected':''} value="false">Não — atendimento humano</option></select></div>
-      ${tags.length&&!isMeta?`<div class="fld"><label>Tags</label><div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px">${tags.map(t=>`<span class="tag gray">${t}</span>`).join('')}</div></div>`:''}
+      <div class="fr">
+        <div class="fld"><label>IA ativa</label><select onchange="toggleAIBiz(${b.id},this.value)"><option ${b.ai_enabled?'selected':''} value="true">Sim — piloto automático</option><option ${!b.ai_enabled?'selected':''} value="false">Não — atendimento humano</option></select></div>
+        <div class="fld"><label>Origem</label><select onchange="PATCH('/api/v1/leads/${b.id}',{origem:this.value}).then(()=>toast('Origem atualizada'))">
+          ${['whatsapp','meta_ads','instagram','site','google_ads'].map(o=>`<option ${(b.origem||'whatsapp')===o?'selected':''} value="${o}">${o}</option>`).join('')}
+        </select></div>
+      </div>
+      ${tags.length?`<div class="fld"><label>${isMeta?'Campanha / Anúncio':'Tags'}</label><div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px">${tags.map(t=>`<span class="tag ${isMeta?'amber':'gray'}">${t}</span>`).join('')}</div></div>`:''}
     </div>
     <div class="modal-foot"><button class="btn ghost" style="color:var(--red);border-color:var(--red-soft)" onclick="deleteLead(${b.id})"><i class="ti ti-trash"></i> Apagar</button><button class="btn ghost" onclick="closeModal()">Fechar</button><button class="btn blue" onclick="closeModal();go('chat')"><i class="ti ti-message-circle"></i> Abrir conversa</button></div>`);
 }
@@ -629,16 +634,20 @@ async function vLeads(){
   <div class="pad">
     <div class="tbl-card">
       <table class="tbl">
-        <thead><tr><th>Lead</th><th>WhatsApp</th><th>Etapa</th><th>Score</th><th>Atendimento</th><th>Valor</th><th>Custo IA</th></tr></thead>
-        <tbody>${leads.map(l=>`<tr onclick="abrirLead(${l.id})">
-          <td><div class="ucell"><div class="av" style="background:${avColor(l.nome)}">${initials(l.nome)}</div><div><b>${l.nome||'—'}</b><small style="display:flex;align-items:center;gap:3px">${l.origem==='meta_ads'?'<i class="ti ti-brand-meta" style="color:#fbbf24;font-size:11px"></i>':''} ${l.origem||'—'}</small></div></div></td>
+        <thead><tr><th>Lead</th><th>WhatsApp</th><th>Origem / Campanha</th><th>Etapa</th><th>Score</th><th>Atendimento</th><th>Valor</th><th>Custo IA</th></tr></thead>
+        <tbody>${leads.map(l=>{const ltags=(l.tags||[]).filter(Boolean);return`<tr onclick="abrirLead(${l.id})">
+          <td><div class="ucell"><div class="av" style="background:${avColor(l.nome)}">${initials(l.nome)}</div><div><b>${l.nome||'—'}</b></div></div></td>
           <td style="color:var(--txt-2)"><i class="ti ti-brand-whatsapp" style="color:var(--wa)"></i> ${l.phone}</td>
+          <td>${l.origem==='meta_ads'
+            ?`<div style="display:flex;flex-direction:column;gap:3px"><span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--amber)"><i class="ti ti-brand-meta" style="font-size:12px"></i>Meta Ads</span>${ltags.map(t=>`<span style="font-size:10.5px;color:var(--txt-3)">${t}</span>`).join('')}</div>`
+            :`<span style="font-size:12px;color:var(--txt-3)">${l.origem||'—'}</span>`
+          }</td>
           <td><span class="tag blue dot">${COLS.find(c=>c.id===l.stage)?.nome||l.stage}</span></td>
           <td><div style="display:flex;align-items:center;gap:7px"><div style="width:48px;height:5px;background:var(--surf-3);border-radius:20px;overflow:hidden"><div style="height:100%;width:${l.qual_score||0}%;background:${(l.qual_score||0)>70?'var(--green)':(l.qual_score||0)>40?'var(--amber)':'var(--txt-3)'};"></div></div><span style="font-size:11px;color:var(--txt-2)">${l.qual_score||0}%</span></div></td>
           <td>${l.ai_enabled?'<span class="tag purple dot">IA</span>':'<span class="tag amber dot">Humano</span>'}</td>
           <td><b style="color:var(--green)">${l.valor_cotado?brl(l.valor_cotado):'—'}</b></td>
           <td><span style="color:var(--green);font-size:12px">${Number(l.total_custo_brl||0)>0?'R$ '+Number(l.total_custo_brl).toFixed(2):'—'}</span></td>
-        </tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--txt-3);padding:40px">Nenhum lead encontrado</td></tr>'}</tbody>
+        </tr>`}).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--txt-3);padding:40px">Nenhum lead encontrado</td></tr>'}</tbody>
       </table>
     </div>
   </div></div>`;

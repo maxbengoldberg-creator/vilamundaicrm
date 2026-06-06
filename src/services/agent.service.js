@@ -146,8 +146,8 @@ export async function handleIncoming({ phone, text, pushName }) {
   await Message.create({ conversation_id: conv.id, role: 'user', content: text, sender: 'lead' });
   await Conversation.touch(conv.id, text);
 
-  if (isMsgCurta(text)) await delay(15000); else await delay(5000);
-
+  // ABERTURA enviada imediatamente (sem delay) para garantir que fica salva
+  // no banco antes que mensagens subsequentes chamem o Claude.
   if (isFirstMessage) {
     const abertura = ABERTURA();
     await zapi.sendText(phone, abertura);
@@ -155,6 +155,8 @@ export async function handleIncoming({ phone, text, pushName }) {
     await Conversation.touch(conv.id, abertura);
     return { ok: true, reply: abertura };
   }
+
+  if (isMsgCurta(text)) await delay(15000); else await delay(5000);
 
   const history = await Message.listRecent(conv.id, 20);
   let messages = toClaudeMessages(history);

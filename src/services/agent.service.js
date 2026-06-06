@@ -37,7 +37,14 @@ async function resolveEffectiveStage(lead) {
   return lead.stage;
 }
 
-const ABERTURA = `Boa tarde,
+function saudacao() {
+  const h = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Bahia' })).getHours();
+  if (h < 12) return 'Bom dia';
+  if (h < 18) return 'Boa tarde';
+  return 'Boa noite';
+}
+
+const ABERTURA = () => `${saudacao()},
 
 Eu sou o Max, Host da Vila Mundaí, tudo bem?
 
@@ -142,10 +149,11 @@ export async function handleIncoming({ phone, text, pushName }) {
   if (isMsgCurta(text)) await delay(15000); else await delay(5000);
 
   if (isFirstMessage) {
-    await zapi.sendText(phone, ABERTURA);
-    await Message.create({ conversation_id: conv.id, role: 'assistant', content: ABERTURA, sender: 'ia' });
-    await Conversation.touch(conv.id, ABERTURA);
-    return { ok: true, reply: ABERTURA };
+    const abertura = ABERTURA();
+    await zapi.sendText(phone, abertura);
+    await Message.create({ conversation_id: conv.id, role: 'assistant', content: abertura, sender: 'ia' });
+    await Conversation.touch(conv.id, abertura);
+    return { ok: true, reply: abertura };
   }
 
   const history = await Message.listRecent(conv.id, 20);

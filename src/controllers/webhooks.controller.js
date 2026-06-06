@@ -78,21 +78,28 @@ export async function metaLeadsWebhook(req, res) {
     const guests   = guestsRaw ? (parseInt(guestsRaw, 10) || null) : null;
     const tags     = [campanha, anuncio].filter(Boolean);
 
+    // Guarda campanha e anúncio no campo extra para rastreamento dedicado
+    const extra = {};
+    if (campanha) extra.campaign_name = campanha;
+    if (anuncio)  extra.ad_name       = anuncio;
+    if (body.platform) extra.platform = body.platform;
+
     // Upsert: cria ou atualiza, mesclando tags sem duplicar
     const { rows } = await query(
-      `INSERT INTO leads (phone, nome, email, origem, tags, checkin, checkout, guests)
-       VALUES ($1, $2, $3, 'meta_ads', $4, $5, $6, $7)
+      `INSERT INTO leads (phone, nome, email, origem, tags, checkin, checkout, guests, extra)
+       VALUES ($1, $2, $3, 'meta_ads', $4, $5, $6, $7, $8)
        ON CONFLICT (phone) DO UPDATE SET
          nome     = COALESCE(EXCLUDED.nome,     leads.nome),
          email    = COALESCE(EXCLUDED.email,    leads.email),
          origem   = 'meta_ads',
          tags     = (SELECT array_agg(DISTINCT t) FROM unnest(leads.tags || EXCLUDED.tags) t),
+         extra    = leads.extra || EXCLUDED.extra,
          checkin  = COALESCE(EXCLUDED.checkin,  leads.checkin),
          checkout = COALESCE(EXCLUDED.checkout, leads.checkout),
          guests   = COALESCE(EXCLUDED.guests,   leads.guests),
          updated_at = now()
        RETURNING id`,
-      [phone, nome, email, tags, checkin, checkout, guests]
+      [phone, nome, email, tags, checkin, checkout, guests, JSON.stringify(extra)]
     );
 
     const lead_id = rows[0].id;

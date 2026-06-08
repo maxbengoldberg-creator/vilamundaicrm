@@ -44,11 +44,15 @@ function saudacao() {
   return 'Boa noite';
 }
 
-const ABERTURA = () => `${saudacao()},
-
-Eu sou o Max, Host da Vila Mundaí, tudo bem?
-
-Como posso ajudar?`;
+// Contexto extra injetado no system prompt apenas na primeira mensagem da
+// conversa: dá ao Claude a saudação certa pelo horário e a instrução de
+// responder tudo — apresentação + o que o lead trouxer — em uma única
+// mensagem, em vez de mandar uma abertura fixa e esperar a próxima resposta.
+function primeiraMensagemContexto() {
+  return `\n\nCONTEXTO — PRIMEIRA MENSAGEM DESTA CONVERSA:
+O lead ainda não te conhece. Use a saudação "${saudacao()}" e apresente-se brevemente como Max, host da Vila Mundaí.
+Na MESMA mensagem, responda também ao que o lead trouxer (pergunta, pedido, comentário) — nunca mande só a saudação/apresentação e deixe o resto para a próxima resposta. O lead não pode ficar sem resposta ao que ele perguntou.`;
+}
 
 function isMsgCurta(text) {
   return text.trim().split(/\s+/).length <= 6;
@@ -162,10 +166,14 @@ export async function handleIncoming({ phone, text, pushName }) {
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     lead = await Lead.findByPhone(phone);
     const effectiveStage = await resolveEffectiveStage(lead);
-    const [system, model] = await Promise.all([
+    let [system, model] = await Promise.all([
       buildSystemPrompt({ ...lead, stage: effectiveStage }),
       getStageModel(effectiveStage),
     ]);
+    if (isFirstMessage) {
+      system += primeiraMensagemContexto();
+      console.log(`[agente] lead ${phone} primeira mensagem da conversa — contexto de abertura injetado no system prompt`);
+    }
     if (!system || !system.trim()) {
       console.error(`[agente] ALERTA prompt VAZIO para stage=${effectiveStage} (cache/banco?). lead ${phone}`);
     }

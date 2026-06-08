@@ -165,8 +165,13 @@ export async function handleIncoming({ phone, text, pushName }) {
     const resp = await callClaude({ system, messages, tools: TOOLS, model, lead_id: lead.id });
 
     const assistantMsg = { role: 'assistant', content: resp.content };
-    messages.push(assistantMsg);
-    await Message.create({ conversation_id: conv.id, role: 'assistant', content: textOf(resp.content), raw: assistantMsg, sender: 'ia' });
+    // Claude às vezes devolve content vazio (array []). Não empilha nem salva
+    // mensagem em branco — só registra respostas com texto ou tool_use.
+    const temConteudo = Array.isArray(resp.content) && resp.content.length > 0;
+    if (temConteudo) {
+      messages.push(assistantMsg);
+      await Message.create({ conversation_id: conv.id, role: 'assistant', content: textOf(resp.content), raw: assistantMsg, sender: 'ia' });
+    }
 
     if (resp.stop_reason === 'tool_use') {
       const toolResults = [];
@@ -218,8 +223,8 @@ async function handleClienteMessage({ cliente, phone, text }) {
   const resp = await callClaude({ system, messages, tools: TOOLS });
   let finalText = textOf(resp.content);
 
-  await Message.create({ conversation_id: conv.id, role: 'assistant', content: finalText, sender: 'ia' });
   if (finalText && finalText.trim()) {
+    await Message.create({ conversation_id: conv.id, role: 'assistant', content: finalText, sender: 'ia' });
     await zapi.sendText(phone, finalText);
     await Conversation.touch(conv.id, finalText);
   }

@@ -106,17 +106,21 @@ export const TOOLS = [
   {
     name: 'criar_reserva',
     description:
-      'Cria a reserva no PMS Hospedin com os dados confirmados do lead. Só use após o lead confirmar que quer reservar.',
+      'Cria a reserva no PMS Hospedin com os dados confirmados do lead. Só use após o lead confirmar que quer reservar. Use o tipo de apto e a diária exatamente como retornados pela consulta de disponibilidade.',
     input_schema: {
       type: 'object',
       properties: {
-        checkin: { type: 'string' },
-        checkout: { type: 'string' },
+        checkin: { type: 'string', description: 'AAAA-MM-DD' },
+        checkout: { type: 'string', description: 'AAAA-MM-DD' },
         guests: { type: 'integer' },
-        room_type_id: { type: ['string', 'integer'] },
-        valor: { type: 'number' },
+        tipo_apto: {
+          type: 'string',
+          enum: ['1 Quarto - Térreo', '1 Quarto - Superior', '2 Quartos - Térreo', '2 Quartos - Superior'],
+          description: 'Tipo de apartamento, exatamente como retornado pela consulta de disponibilidade (campo acomodacao).',
+        },
+        valor: { type: 'number', description: 'Valor da diária em reais, vindo da consulta de disponibilidade.' },
       },
-      required: ['checkin', 'checkout', 'guests'],
+      required: ['checkin', 'checkout', 'guests', 'tipo_apto', 'valor'],
     },
   },
   {

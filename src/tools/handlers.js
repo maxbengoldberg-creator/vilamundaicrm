@@ -9,6 +9,14 @@ const STAGE_ORDER = ['qualif', 'apres', 'quente', 'negociacao', 'contrato', 'pag
 // De morno, o lead volta para negociacao (etapa após quente).
 const MORNO_NEXT = 'negociacao';
 
+// Mapa nome da acomodação -> place_type_id do Hospedin.
+const PLACE_TYPE_IDS = {
+  '1 Quarto - Térreo': 178135,
+  '1 Quarto - Superior': 179290,
+  '2 Quartos - Térreo': 179291,
+  '2 Quartos - Superior': 178729,
+};
+
 function nextStage(current) {
   if (current === 'morno') return MORNO_NEXT;
   const idx = STAGE_ORDER.indexOf(current);
@@ -91,15 +99,18 @@ export const HANDLERS = {
   },
 
   async criar_reserva(input, ctx) {
+    const tipo_apto = input.tipo_apto || ctx.lead.acomodacao;
+    const place_type_id = PLACE_TYPE_IDS[tipo_apto];
+    if (!place_type_id) {
+      return { ok: false, erro: `Tipo de apartamento inválido: "${tipo_apto}". Use a acomodação exata da consulta de disponibilidade.` };
+    }
     const r = await hospedin.criarReserva({
       nome: ctx.lead.nome,
-      phone: ctx.phone,
-      email: ctx.lead.email,
       checkin: input.checkin,
       checkout: input.checkout,
       guests: input.guests,
-      room_type_id: input.room_type_id,
-      valor: input.valor,
+      place_type_id,
+      diaria: input.valor,
     });
     if (r.ok) {
       await Reservation.create({
@@ -108,7 +119,7 @@ export const HANDLERS = {
         checkin: input.checkin,
         checkout: input.checkout,
         guests: input.guests,
-        acomodacao: ctx.lead.acomodacao,
+        acomodacao: tipo_apto,
         valor: input.valor,
         status: r.status,
         payload: r.raw,

@@ -19,8 +19,10 @@ export async function callClaude({ system, messages, tools, model, lead_id }) {
   });
   const i = resp.usage.input_tokens;
   const o = resp.usage.output_tokens;
+  const cacheRead = resp.usage.cache_read_input_tokens || 0;
+  const cacheWrite = resp.usage.cache_creation_input_tokens || 0;
   const custoBrl = (i * 15 + o * 75) / 1000000 * 5.7;
-  console.log(`[tokens] input:${i} output:${o} custo:~R$${custoBrl.toFixed(4)}`);
+  console.log(`[tokens] input:${i} output:${o} cache_read:${cacheRead} cache_write:${cacheWrite} stop:${resp.stop_reason} custo:~R$${custoBrl.toFixed(4)}`);
 
   if (lead_id) {
     query(

@@ -152,7 +152,12 @@ export async function handleIncoming({ phone, text, pushName }) {
 
   const history = await Message.listRecent(conv.id, 20);
   let messages = toClaudeMessages(history);
-  let finalText = '';
+  console.log(`[agente] lead ${phone} historico=${history.length}msgs janela=${messages.length}msgs primeira_role=${messages[0]?.role || '-'} ultima_role=${messages[messages.length-1]?.role || '-'}`);
+
+  // Texto que o Claude emite ao longo das rodadas. O modelo costuma mandar texto
+  // JUNTO com um tool_use (stop_reason=tool_use); esse texto precisa ser enviado
+  // ao lead, senão a fala se perde e na rodada seguinte o modelo não repete (retorna ~vazio).
+  const partes = [];
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     lead = await Lead.findByPhone(phone);
@@ -161,8 +166,16 @@ export async function handleIncoming({ phone, text, pushName }) {
       buildSystemPrompt({ ...lead, stage: effectiveStage }),
       getStageModel(effectiveStage),
     ]);
-    console.log(`[agente] lead ${phone} stage=${lead.stage} prompt=${effectiveStage} model=${model}`);
+    if (!system || !system.trim()) {
+      console.error(`[agente] ALERTA prompt VAZIO para stage=${effectiveStage} (cache/banco?). lead ${phone}`);
+    }
+    console.log(`[agente] lead ${phone} round=${round} stage=${lead.stage} prompt=${effectiveStage} model=${model} system_len=${system?.length || 0} msgs=${messages.length}`);
     const resp = await callClaude({ system, messages, tools: TOOLS, model, lead_id: lead.id });
+
+    const tipos = Array.isArray(resp.content) ? resp.content.map(b => b.type) : [typeof resp.content];
+    const texto = textOf(resp.content);
+    const tools = Array.isArray(resp.content) ? resp.content.filter(b => b.type === 'tool_use').map(b => b.name) : [];
+    console.log(`[agente] lead ${phone} round=${round} stop=${resp.stop_reason} blocos=[${tipos.join(',')}] texto_len=${texto.length} tools=[${tools.join(',')}]`);
 
     const assistantMsg = { role: 'assistant', content: resp.content };
     // Claude às vezes devolve content vazio (array []). Não empilha nem salva
@@ -170,8 +183,13 @@ export async function handleIncoming({ phone, text, pushName }) {
     const temConteudo = Array.isArray(resp.content) && resp.content.length > 0;
     if (temConteudo) {
       messages.push(assistantMsg);
-      await Message.create({ conversation_id: conv.id, role: 'assistant', content: textOf(resp.content), raw: assistantMsg, sender: 'ia' });
+      await Message.create({ conversation_id: conv.id, role: 'assistant', content: texto, raw: assistantMsg, sender: 'ia' });
+    } else {
+      console.warn(`[agente] lead ${phone} round=${round} resposta SEM conteudo (content vazio) — nada salvo/enviado.`);
     }
+
+    // Guarda qualquer texto desta rodada (inclusive o que veio junto com tool_use).
+    if (texto && texto.trim()) partes.push(texto.trim());
 
     if (resp.stop_reason === 'tool_use') {
       const toolResults = [];
@@ -180,7 +198,9 @@ export async function handleIncoming({ phone, text, pushName }) {
         const handler = HANDLERS[block.name];
         let result;
         try { result = handler ? await handler(block.input || {}, { lead, phone }) : { ok: false, erro: `ferramenta ${block.name} nao existe` }; }
-        catch (e) { result = { ok: false, erro: e.message }; }
+        catch (e) { result = { ok: false, erro: e.message }; console.error(`[agente] lead ${phone} ERRO handler ${block.name}:`, e.message); }
+        const okFlag = result && typeof result === 'object' ? result.ok : undefined;
+        console.log(`[agente] lead ${phone} tool=${block.name} ok=${okFlag} input=${JSON.stringify(block.input || {})}`);
         toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(result) });
       }
       const toolMsg = { role: 'user', content: toolResults };
@@ -188,17 +208,21 @@ export async function handleIncoming({ phone, text, pushName }) {
       await Message.create({ conversation_id: conv.id, role: 'user', content: '[ferramentas]', raw: toolMsg, sender: 'ia' });
       continue;
     }
-    finalText = textOf(resp.content);
     break;
   }
 
+  // Junta tudo que o Claude falou nas rodadas (texto solto + texto junto a tool_use).
+  const finalText = partes.join('\n\n');
   if (finalText && finalText.trim()) {
     const blocos = finalText.split(/\n\n+/).map(b => b.trim()).filter(Boolean);
+    console.log(`[agente] lead ${phone} ENVIANDO ${blocos.length} bloco(s), total_len=${finalText.length}`);
     for (let i = 0; i < blocos.length; i++) {
       if (i > 0) await delay(4000);
       await zapi.sendText(phone, blocos[i]);
     }
     await Conversation.touch(conv.id, finalText);
+  } else {
+    console.warn(`[agente] lead ${phone} NADA a enviar (nenhum texto nas ${MAX_TOOL_ROUNDS} rodadas).`);
   }
   return { ok: true, reply: finalText };
 }

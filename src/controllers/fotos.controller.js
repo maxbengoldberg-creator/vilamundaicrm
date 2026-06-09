@@ -22,17 +22,6 @@ export async function syncFotosHandler(req, res, next) {
   }
 }
 
-export async function debugSync(req, res, next) {
-  try {
-    const { v2: cloudinary } = await import('cloudinary');
-    const raiz = process.env.CLOUDINARY_FOTOS_PASTA || 'vila-mundai';
-    const result = await cloudinary.search.expression(`folder:${raiz}/*`).max_results(1).execute();
-    res.json({ total_count: result.total_count, first: result.resources?.[0] || null });
-  } catch (e) {
-    res.status(500).json({ error: e?.message || JSON.stringify(e) });
-  }
-}
-
 export async function clearFotos(req, res, next) {
   try {
     const { rowCount } = await query('DELETE FROM fotos');

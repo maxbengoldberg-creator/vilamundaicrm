@@ -35,6 +35,8 @@ app.listen(env.port, () => {
     query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS total_tokens_output INTEGER     DEFAULT 0`),
     query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS total_custo_brl     NUMERIC(10,4) DEFAULT 0`),
     query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS condicoes_pagamento JSONB DEFAULT '{}'`),
+    query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cpf TEXT`),
+    query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS data_nascimento TEXT`),
     query(`CREATE TABLE IF NOT EXISTS fotos (
       id         BIGSERIAL PRIMARY KEY,
       tipo_apto  TEXT,

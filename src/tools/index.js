@@ -37,15 +37,17 @@ export const TOOLS = [
   {
     name: 'extrair_dados_lead',
     description:
-      'Salva na ficha do lead os dados captados na conversa (datas, número de hóspedes, acomodação de interesse, orçamento). Use sempre que descobrir uma dessas informações.',
+      'Salva na ficha do lead os dados captados na conversa. Use sempre que descobrir qualquer uma dessas informações — incluindo nome completo, CPF e data de nascimento coletados na negociação.',
     input_schema: {
       type: 'object',
       properties: {
-        nome: { type: 'string' },
+        nome: { type: 'string', description: 'Nome completo do lead' },
         checkin: { type: 'string', description: 'AAAA-MM-DD' },
         checkout: { type: 'string', description: 'AAAA-MM-DD' },
         guests: { type: 'integer' },
         acomodacao: { type: 'string' },
+        cpf: { type: 'string', description: 'CPF do lead, somente números ou com pontuação' },
+        data_nascimento: { type: 'string', description: 'Data de nascimento no formato AAAA-MM-DD' },
       },
     },
   },

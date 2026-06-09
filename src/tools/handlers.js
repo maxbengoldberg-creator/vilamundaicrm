@@ -54,7 +54,7 @@ export const HANDLERS = {
 
   async extrair_dados_lead(input, ctx) {
     const patch = {};
-    for (const k of ['nome', 'checkin', 'checkout', 'guests', 'acomodacao']) {
+    for (const k of ['nome', 'checkin', 'checkout', 'guests', 'acomodacao', 'cpf', 'data_nascimento']) {
       if (input[k] !== undefined && input[k] !== null && input[k] !== '') patch[k] = input[k];
     }
     await Lead.update(ctx.lead.id, patch);

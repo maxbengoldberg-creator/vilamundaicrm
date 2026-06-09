@@ -24,7 +24,7 @@ export async function create({ phone, nome = null, origem = 'whatsapp' }) {
 const ALLOWED = new Set([
   'nome', 'email', 'origem', 'stage', 'qual_score', 'tags', 'checkin', 'checkout',
   'guests', 'acomodacao', 'valor_cotado', 'ai_enabled', 'assigned_to', 'extra',
-  'condicoes_pagamento',
+  'condicoes_pagamento', 'cpf', 'data_nascimento',
 ]);
 
 export async function update(id, patch) {

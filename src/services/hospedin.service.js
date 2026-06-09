@@ -81,26 +81,49 @@ export const hospedin = {
       const daily_cents = Math.round((diaria || 100) * 100);
       const total_daily_cents = daily_cents * noites;
       const pt = PLACE_TYPES.find(p => p.id === place_type_id) || PLACE_TYPES[0];
-      const { data } = await axios.post(
-        `${BASE}/${ACCOUNT_ID}/reservations`,
-        {
-          sale_channel_id: SALE_CHANNEL_ID,
-          place_type_id: pt.id,
-          place_id: place_id || pt.places[0],
-          status: 'pre_reservation',
-          check_in: checkin,
-          check_out: checkout,
-          daily_cents,
-          total_daily_cents,
-          adults: Number(guests) || 2,
-          children: 0,
-          exempt: false,
-          guest_id: guest.id,
-          has_breakfast: false,
-        },
-        { headers: h }
-      );
-      return { ok: true, pms_id: data.id, codigo: data.searchable_code, status: data.status, raw: data };
+
+      // A disponibilidade é verificada por TIPO, mas a reserva exige uma unidade
+      // (place_id) específica. Tenta cada unidade do tipo até achar uma livre —
+      // o PMS recusa com "UH já está em uso" as que estão ocupadas no período.
+      const candidatos = place_id ? [place_id] : pt.places;
+      let ultimoErro = null;
+
+      for (const pid of candidatos) {
+        try {
+          const { data } = await axios.post(
+            `${BASE}/${ACCOUNT_ID}/reservations`,
+            {
+              sale_channel_id: SALE_CHANNEL_ID,
+              place_type_id: pt.id,
+              place_id: pid,
+              status: 'pre_reservation',
+              check_in: checkin,
+              check_out: checkout,
+              daily_cents,
+              total_daily_cents,
+              adults: Number(guests) || 2,
+              children: 0,
+              exempt: false,
+              guest_id: guest.id,
+              has_breakfast: false,
+            },
+            { headers: h }
+          );
+          return { ok: true, pms_id: data.id, codigo: data.searchable_code, status: data.status, place_id: pid, raw: data };
+        } catch (err) {
+          ultimoErro = err.response?.data || err.message;
+          const msg = JSON.stringify(ultimoErro);
+          // "UH já está em uso" → tenta a próxima unidade; outro erro → aborta.
+          if (/em uso/i.test(msg)) {
+            console.warn(`[hospedin] unidade ${pid} ocupada no período, tentando próxima`);
+            continue;
+          }
+          throw err;
+        }
+      }
+
+      console.error('[hospedin] criarReserva: todas as unidades ocupadas/erro:', JSON.stringify(ultimoErro));
+      return { ok: false, erro: 'Nenhuma unidade desse tipo está livre para o período no PMS.', detalhe: ultimoErro };
     } catch (err) {
       const detalhe = err.response?.data || err.message;
       console.error('[hospedin] criarReserva:', JSON.stringify(detalhe));

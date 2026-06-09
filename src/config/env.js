@@ -34,4 +34,11 @@ export const env = {
   },
 
   propertyName: process.env.PROPERTY_NAME || 'Vila Mundaí',
+
+  cloudinary: {
+    cloudName: required('CLOUDINARY_CLOUD_NAME'),
+    apiKey:    required('CLOUDINARY_API_KEY'),
+    apiSecret: required('CLOUDINARY_API_SECRET'),
+    fotosPasta: process.env.CLOUDINARY_FOTOS_PASTA || 'vila-mundai',
+  },
 };

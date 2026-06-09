@@ -5,6 +5,7 @@ import { runAgent, generateAutomation } from '../controllers/agent.controller.js
 import * as crm from '../controllers/crm.controller.js';
 import * as clientes from '../controllers/clientes.controller.js';
 import * as stages from '../controllers/stages.controller.js';
+import * as fotos from '../controllers/fotos.controller.js';
 
 const router = Router();
 
@@ -41,6 +42,10 @@ api.patch('/automations/stages/:stage', stages.updateStage);
 // Automações — builder genérico (legado)
 api.get('/automations', crm.listAutomations);
 api.patch('/automations/:id', crm.updateAutomation);
+
+// Fotos
+api.get('/fotos', fotos.listFotos);
+api.post('/fotos/sync', fotos.syncFotosHandler);
 
 // Clientes (boas-vindas / hóspedes confirmados)
 api.post('/clientes/importar', clientes.importarChegadas);

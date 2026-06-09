@@ -1,5 +1,6 @@
 import { hospedin } from '../services/hospedin.service.js';
 import { zapi } from '../services/zapi.service.js';
+import { query } from '../config/db.js';
 import * as Lead from '../models/lead.model.js';
 import * as Reservation from '../models/reservation.model.js';
 
@@ -81,9 +82,20 @@ export const HANDLERS = {
   },
 
   async enviar_midia(input, ctx) {
-    if (input.tipo === 'video') await zapi.sendVideo(ctx.phone, input.url, input.legenda || '');
-    else await zapi.sendImage(ctx.phone, input.url, input.legenda || '');
-    return { ok: true, enviado: input.tipo };
+    const { rows } = await query(
+      `SELECT url, public_id FROM fotos WHERE tipo_apto = $1 ORDER BY created_at ASC`,
+      [input.tipo_apto]
+    );
+    if (rows.length === 0) {
+      return { ok: false, erro: `Nenhuma foto encontrada para tipo_apto "${input.tipo_apto}". Sincronize as fotos via /api/v1/fotos/sync.` };
+    }
+    const legenda = input.legenda || '';
+    for (const foto of rows) {
+      const isVideo = /\.(mp4|mov|avi|webm)$/i.test(foto.url);
+      if (isVideo) await zapi.sendVideo(ctx.phone, foto.url, legenda);
+      else await zapi.sendImage(ctx.phone, foto.url, legenda);
+    }
+    return { ok: true, enviadas: rows.length, tipo_apto: input.tipo_apto };
   },
 
   async gerar_link_pagamento(input) {

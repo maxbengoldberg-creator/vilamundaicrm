@@ -35,6 +35,14 @@ app.listen(env.port, () => {
     query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS total_tokens_output INTEGER     DEFAULT 0`),
     query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS total_custo_brl     NUMERIC(10,4) DEFAULT 0`),
     query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS condicoes_pagamento JSONB DEFAULT '{}'`),
+    query(`CREATE TABLE IF NOT EXISTS fotos (
+      id         BIGSERIAL PRIMARY KEY,
+      tipo_apto  TEXT,
+      descricao  TEXT,
+      url        TEXT NOT NULL,
+      public_id  TEXT UNIQUE NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT now()
+    )`),
   ]).catch(err => console.error('[server] migrate falhou:', err.message));
 
   // Job de morno: roda imediatamente e depois a cada 1 hora

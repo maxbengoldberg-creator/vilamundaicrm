@@ -78,16 +78,18 @@ export const TOOLS = [
   },
   {
     name: 'enviar_midia',
-    description:
-      'Envia uma imagem ou vídeo ao lead pelo WhatsApp (ex.: fotos do chalé). Use URLs públicas das mídias da hospedagem.',
+    description: 'Envia as fotos ou vídeos do tipo de apartamento indicado ao lead pelo WhatsApp. As mídias são buscadas automaticamente do banco conforme o tipo_apto.',
     input_schema: {
       type: 'object',
       properties: {
-        tipo: { type: 'string', enum: ['imagem', 'video'] },
-        url: { type: 'string' },
-        legenda: { type: 'string' },
+        tipo_apto: {
+          type: 'string',
+          enum: ['1 Quarto - Térreo', '1 Quarto - Superior', '2 Quartos - Térreo', '2 Quartos - Superior', 'geral'],
+          description: 'Tipo de apartamento cujas fotos/vídeos serão enviados. Use "geral" para fotos do condomínio sem tipo específico.',
+        },
+        legenda: { type: 'string', description: 'Legenda opcional para as mídias enviadas.' },
       },
-      required: ['tipo', 'url'],
+      required: ['tipo_apto'],
     },
   },
   {

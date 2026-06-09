@@ -533,7 +533,30 @@ function bizCard(b){return `<div class="biz" draggable="true" data-id="${b.id}" 
       <button onclick="event.stopPropagation();abrirPromptLead(${b.id},'${b.phone}')" title="Enviar instrução ao agente" style="background:rgba(79,143,247,.15);border:1px solid rgba(79,143,247,.35);border-radius:5px;color:#7fb0ff;font-size:10px;font-weight:700;padding:2px 7px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:3px"><i class="ti ti-terminal-2" style="font-size:12px"></i>Prompt</button>
     </span>
   </div>
+  ${b.stage==='contrato'?`<div style="display:flex;gap:6px;border-top:1px solid var(--line);padding-top:8px;margin-top:4px">
+    <button onclick="event.stopPropagation();verContrato(${b.id})" title="Ver contrato em PDF" style="flex:1;background:rgba(45,212,191,.15);border:1px solid rgba(45,212,191,.4);border-radius:6px;color:#2dd4bf;font-size:11px;font-weight:700;padding:5px 0;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:4px"><i class="ti ti-file-text" style="font-size:13px"></i>Ver contrato</button>
+    <button onclick="event.stopPropagation();enviarContrato(${b.id},'${b.phone}')" title="Enviar contrato por WhatsApp" style="flex:1;background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.4);border-radius:6px;color:#34d399;font-size:11px;font-weight:700;padding:5px 0;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:4px"><i class="ti ti-send" style="font-size:13px"></i>Enviar contrato</button>
+  </div>`:''}
 </div>`}
+async function verContrato(id){
+  toast('Gerando contrato…');
+  try{
+    const r=await fetch(`${API_URL}/api/v1/leads/${id}/contrato`,{headers:{'x-api-key':API_KEY}});
+    if(!r.ok)throw new Error(await r.text());
+    const blob=await r.blob();
+    const url=URL.createObjectURL(blob);
+    window.open(url,'_blank');
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }catch(e){toast('Erro ao gerar contrato',false);console.error(e);}
+}
+async function enviarContrato(id,phone){
+  if(!confirm('Enviar o contrato em PDF por WhatsApp para este lead?'))return;
+  toast('Gerando e enviando contrato…');
+  try{
+    await POST(`/api/v1/leads/${id}/contrato/enviar`,{});
+    toast('Contrato enviado por WhatsApp');
+  }catch(e){toast('Erro ao enviar contrato',false);console.error(e);}
+}
 async function toggleAICard(id){
   const wrap=document.getElementById(`ai-badges-${id}`);
   if(!wrap)return;

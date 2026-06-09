@@ -1,0 +1,11 @@
+# Build no Railway (NIXPACKS).
+# Além do Node, o contrato precisa de LibreOffice (docx -> pdf) e Python + docxtpl.
+[phases.setup]
+aptPkgs = ["libreoffice-writer", "python3", "python3-pip", "fonts-liberation"]
+
+[phases.install]
+dependsOn = ["setup"]
+cmds = [
+  "npm ci",
+  "pip3 install --break-system-packages -r requirements.txt",
+]

@@ -6,6 +6,7 @@ import * as crm from '../controllers/crm.controller.js';
 import * as clientes from '../controllers/clientes.controller.js';
 import * as stages from '../controllers/stages.controller.js';
 import * as fotos from '../controllers/fotos.controller.js';
+import * as contrato from '../controllers/contrato.controller.js';
 
 const router = Router();
 
@@ -28,6 +29,10 @@ api.get('/leads/:id', crm.getLead);
 api.patch('/leads/:id', crm.updateLead);
 api.patch('/leads/:id/ai', crm.toggleAI);
 api.delete('/leads/:id', crm.deleteLead);
+
+// Contrato (gera com docxtpl + LibreOffice, envia via Z-API)
+api.get('/leads/:id/contrato', contrato.verContrato);
+api.post('/leads/:id/contrato/enviar', contrato.enviarContrato);
 
 // Conversas
 api.get('/conversations', crm.listConversations);

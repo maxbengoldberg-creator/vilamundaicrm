@@ -15,7 +15,6 @@ async function buscarRecursos(expression) {
   do {
     let q = cloudinary.search
       .expression(expression)
-      .with_field('asset_folder')
       .max_results(200);
     if (cursor) q = q.next_cursor(cursor);
     const result = await q.execute();
@@ -52,12 +51,17 @@ export async function syncFotos() {
   let inseridos = 0;
   let ignorados = 0;
 
+  if (recursos.length > 0) {
+    console.log('[syncFotos] campos disponíveis no primeiro recurso:', Object.keys(recursos[0]).join(', '));
+    console.log('[syncFotos] amostra:', JSON.stringify(recursos[0]));
+  }
+
   for (const r of recursos) {
-    // Em dynamic folder mode, asset_folder = "vila-mundai/apto-1-quarto-superior"
-    // O tipo_apto é o último segmento do asset_folder.
-    const folder = r.asset_folder || '';
+    // Tenta extrair a subpasta do campo `folder` (fixed mode) ou `public_id` (fallback).
+    // Em dynamic folder mode, public_id não inclui a pasta — usamos secure_url para inferir.
+    const folder = r.folder || '';
     const partes = folder.split('/').filter(Boolean);
-    const tipo_apto = partes.length >= 2 ? partes[partes.length - 1] : null;
+    const tipo_apto = partes.length >= 2 ? partes[partes.length - 1] : (partes.length === 1 ? null : null);
 
     const { rowCount } = await query(
       `INSERT INTO fotos (tipo_apto, url, public_id)

@@ -7,46 +7,68 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Lista todos os recursos de uma pasta do Cloudinary e retorna suas URLs públicas.
-export async function listFotos(pasta) {
-  const result = await cloudinary.api.resources({
-    type: 'upload',
-    prefix: pasta,
-    max_results: 200,
-  });
-  return result.resources.map(r => ({
-    public_id: r.public_id,
-    url: r.secure_url,
-    formato: r.format,
-  }));
-}
-
-// Sincroniza todas as fotos do Cloudinary com a tabela fotos no banco.
-// Usa a Search API (funciona com folder mode ativo) e pagina até esgotar.
-// Estrutura esperada: vila-mundai/<tipo_apto>/arquivo — o tipo_apto vem da subpasta.
-export async function syncFotos() {
-  const raiz = process.env.CLOUDINARY_FOTOS_PASTA || 'vila-mundai';
+// Busca todos os recursos de uma pasta usando a Search API (suporta dynamic folder mode).
+// Retorna asset_folder para extrair o tipo_apto corretamente.
+async function buscarRecursos(expression) {
   let todos = [];
   let cursor = null;
-
   do {
     let q = cloudinary.search
-      .expression(`folder:${raiz}/*`)
+      .expression(expression)
+      .with_field('asset_folder')
       .max_results(200);
     if (cursor) q = q.next_cursor(cursor);
     const result = await q.execute();
     todos = todos.concat(result.resources || []);
     cursor = result.next_cursor || null;
   } while (cursor);
+  return todos;
+}
+
+// Lista todos os recursos de uma pasta do Cloudinary e retorna suas URLs públicas.
+export async function listFotos(pasta) {
+  const recursos = await buscarRecursos(`folder:${pasta}/*`);
+  return recursos.map(r => ({
+    public_id: r.public_id,
+    asset_folder: r.asset_folder,
+    url: r.secure_url,
+    formato: r.format,
+  }));
+}
+
+// Move todos os recursos de uma pasta para outra no Cloudinary (dynamic folder mode).
+// Usa cloudinary.api.update para alterar o asset_folder de cada recurso.
+export async function moverFotos(pastaOrigem, pastaDestino) {
+  const recursos = await buscarRecursos(`folder:${pastaOrigem}/*`);
+  let movidos = 0;
+  const erros = [];
+  for (const r of recursos) {
+    try {
+      await cloudinary.api.update(r.public_id, { asset_folder: pastaDestino });
+      movidos++;
+    } catch (e) {
+      erros.push({ public_id: r.public_id, erro: e.message });
+    }
+  }
+  return { ok: true, total: recursos.length, movidos, erros };
+}
+
+// Sincroniza todas as fotos do Cloudinary com a tabela fotos no banco.
+// Em dynamic folder mode, o tipo_apto vem do asset_folder (não do public_id).
+// Estrutura esperada: vila-mundai/<tipo_apto> como asset_folder.
+export async function syncFotos() {
+  const raiz = process.env.CLOUDINARY_FOTOS_PASTA || 'vila-mundai';
+  const recursos = await buscarRecursos(`folder:${raiz}/*`);
 
   let inseridos = 0;
   let ignorados = 0;
 
-  for (const r of todos) {
-    // Extrai tipo_apto da subpasta imediatamente abaixo da raiz
-    // ex: vila-mundai/apto-1-quarto-superior/foto.jpg → tipo_apto = "apto-1-quarto-superior"
-    const partes = r.public_id.split('/');
-    const tipo_apto = partes.length >= 2 ? partes[partes.length - 2] : null;
+  for (const r of recursos) {
+    // Em dynamic folder mode, asset_folder = "vila-mundai/apto-1-quarto-superior"
+    // O tipo_apto é o último segmento do asset_folder.
+    const folder = r.asset_folder || '';
+    const partes = folder.split('/').filter(Boolean);
+    const tipo_apto = partes.length >= 2 ? partes[partes.length - 1] : null;
 
     const { rowCount } = await query(
       `INSERT INTO fotos (tipo_apto, url, public_id)
@@ -58,5 +80,5 @@ export async function syncFotos() {
     else ignorados++;
   }
 
-  return { ok: true, inseridos, ignorados, total: todos.length };
+  return { ok: true, inseridos, ignorados, total: recursos.length };
 }

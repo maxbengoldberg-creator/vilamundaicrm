@@ -1,5 +1,5 @@
 import { query } from '../config/db.js';
-import { syncFotos } from '../services/cloudinary.service.js';
+import { syncFotos, moverFotos } from '../services/cloudinary.service.js';
 
 export async function listFotos(req, res, next) {
   try {
@@ -26,5 +26,19 @@ export async function clearFotos(req, res, next) {
     const { rowCount } = await query('DELETE FROM fotos');
     res.json({ ok: true, deletados: rowCount });
   } catch (e) { next(e); }
+}
+
+// Move fotos no Cloudinary de uma pasta para outra (dynamic folder mode).
+// Body: { origem, destino }
+export async function migrarFotos(req, res, next) {
+  try {
+    const { origem, destino } = req.body;
+    if (!origem || !destino) return res.status(400).json({ error: 'origem e destino obrigatórios' });
+    const result = await moverFotos(origem, destino);
+    res.json(result);
+  } catch (e) {
+    console.error('[fotos/migrar] erro:', e.message);
+    res.status(500).json({ error: e.message });
+  }
 }
 

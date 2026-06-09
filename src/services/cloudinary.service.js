@@ -36,21 +36,10 @@ export async function listFotos(pasta) {
   }));
 }
 
-// Move todos os recursos de uma pasta para outra no Cloudinary (dynamic folder mode).
-// Usa cloudinary.api.update para alterar o asset_folder de cada recurso.
-export async function moverFotos(pastaOrigem, pastaDestino) {
-  const recursos = await buscarRecursos(`folder:${pastaOrigem}/*`);
-  let movidos = 0;
-  const erros = [];
-  for (const r of recursos) {
-    try {
-      await cloudinary.api.update(r.public_id, { asset_folder: pastaDestino });
-      movidos++;
-    } catch (e) {
-      erros.push({ public_id: r.public_id, erro: e.message });
-    }
-  }
-  return { ok: true, total: recursos.length, movidos, erros };
+// Move um recurso individual para outra pasta no Cloudinary (dynamic folder mode).
+// Lança exceção em caso de erro para que o caller possa tratar individualmente.
+export async function moverFotos(publicId, pastaDestino) {
+  await cloudinary.api.update(publicId, { asset_folder: pastaDestino });
 }
 
 // Sincroniza todas as fotos do Cloudinary com a tabela fotos no banco.

@@ -30,11 +30,10 @@ export async function syncFotos() {
   let cursor = null;
 
   do {
-    const q = cloudinary.search
+    let q = cloudinary.search
       .expression(`folder:${raiz}/*`)
-      .with_field('secure_url')
       .max_results(200);
-    if (cursor) q.next_cursor(cursor);
+    if (cursor) q = q.next_cursor(cursor);
     const result = await q.execute();
     todos = todos.concat(result.resources || []);
     cursor = result.next_cursor || null;

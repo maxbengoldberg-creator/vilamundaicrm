@@ -15,6 +15,9 @@ export async function syncFotosHandler(req, res, next) {
   try {
     const result = await syncFotos();
     res.json(result);
-  } catch (e) { next(e); }
+  } catch (e) {
+    console.error('[fotos/sync] erro:', e.message, e.stack);
+    res.status(500).json({ error: e.message });
+  }
 }
 

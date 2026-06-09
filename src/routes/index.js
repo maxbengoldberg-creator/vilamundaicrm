@@ -46,6 +46,7 @@ api.patch('/automations/:id', crm.updateAutomation);
 // Fotos
 api.get('/fotos', fotos.listFotos);
 api.post('/fotos/sync', fotos.syncFotosHandler);
+api.get('/fotos/diag', fotos.diagCloudinary);
 
 // Clientes (boas-vindas / hóspedes confirmados)
 api.post('/clientes/importar', clientes.importarChegadas);

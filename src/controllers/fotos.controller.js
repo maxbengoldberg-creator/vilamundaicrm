@@ -21,3 +21,10 @@ export async function syncFotosHandler(req, res, next) {
   }
 }
 
+export async function clearFotos(req, res, next) {
+  try {
+    const { rowCount } = await query('DELETE FROM fotos');
+    res.json({ ok: true, deletados: rowCount });
+  } catch (e) { next(e); }
+}
+

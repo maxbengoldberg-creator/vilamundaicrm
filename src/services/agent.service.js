@@ -59,6 +59,18 @@ function isMsgCurta(text) {
 }
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+// Lock por telefone: evita dois handleIncoming concorrentes para o mesmo lead.
+// Se uma segunda mensagem chega enquanto a primeira ainda processa, ela é salva
+// no banco (Message.create acontece antes do lock) e o invocation em andamento
+// já a lê via listRecent depois do delay.
+const _processing = new Map();
+function acquireLock(phone) {
+  if (_processing.has(phone)) return false;
+  _processing.set(phone, true);
+  return true;
+}
+function releaseLock(phone) { _processing.delete(phone); }
+
 function toClaudeMessages(rows) {
   let msgs = [];
   for (const r of rows) {
@@ -150,6 +162,14 @@ export async function handleIncoming({ phone, text, pushName }) {
   await Message.create({ conversation_id: conv.id, role: 'user', content: text, sender: 'lead' });
   await Conversation.touch(conv.id, text);
 
+  // Se já há um processamento em andamento para este lead, a mensagem já está
+  // salva no banco e será lida pelo invocation ativo via listRecent após o delay.
+  if (!acquireLock(phone)) {
+    console.log(`[agente] lead ${phone} — mensagem enfileirada (outro processamento em curso)`);
+    return { skipped: true, reason: 'processamento_em_curso' };
+  }
+
+  try {
   if (isFirstMessage) await delay(40000);
   else if (isMsgCurta(text)) await delay(15000);
   else await delay(5000);
@@ -233,6 +253,9 @@ export async function handleIncoming({ phone, text, pushName }) {
     console.warn(`[agente] lead ${phone} NADA a enviar (nenhum texto nas ${MAX_TOOL_ROUNDS} rodadas).`);
   }
   return { ok: true, reply: finalText };
+  } finally {
+    releaseLock(phone);
+  }
 }
 
 async function handleClienteMessage({ cliente, phone, text }) {

@@ -1,6 +1,7 @@
 // Prompts por etapa do funil — carregados do banco com cache de 60s.
 // Placeholders disponíveis nos textos do banco:
-//   {{hoje}}, {{ano}}, {{nome}}, {{checkin}}, {{checkout}}, {{guests}}, {{sinal_30}}
+//   {{hoje}}, {{ano}}, {{nome}}, {{checkin}}, {{checkout}}, {{guests}}, {{sinal_30}},
+//   {{condicoes_pagamento}} (JSON das condições acordadas na negociação)
 
 import * as AutomationStage from '../models/automation_stage.model.js';
 
@@ -33,7 +34,10 @@ function interpolate(template, lead) {
     .replace(/\{\{guests\}\}/g, String(lead.guests || '—'))
     .replace(/\{\{sinal_30\}\}/g, lead.valor_cotado
       ? (Number(lead.valor_cotado) * 0.3).toFixed(2)
-      : 'verificar');
+      : 'verificar')
+    .replace(/\{\{condicoes_pagamento\}\}/g, lead.condicoes_pagamento
+      ? JSON.stringify(lead.condicoes_pagamento, null, 2)
+      : 'não registradas');
 }
 
 export async function buildStagePrompt(lead) {

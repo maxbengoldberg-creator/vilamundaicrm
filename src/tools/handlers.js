@@ -128,6 +128,20 @@ export const HANDLERS = {
     return r;
   },
 
+  async salvar_condicoes(input, ctx) {
+    const condicoes = {
+      forma_pagamento: input.forma_pagamento,
+      parcelas: input.parcelas,
+      desconto_pix: input.desconto_pix,
+      valor_total: input.valor_total,
+      valor_sinal: input.valor_sinal,
+      ...(input.data_sinal ? { data_sinal: input.data_sinal } : {}),
+      ...(input.observacoes ? { observacoes: input.observacoes } : {}),
+    };
+    await Lead.update(ctx.lead.id, { condicoes_pagamento: condicoes });
+    return { ok: true, salvo: condicoes };
+  },
+
   async escalar_humano(input, ctx) {
     await Lead.update(ctx.lead.id, { ai_enabled: false });
     // Aqui você poderia notificar a equipe (Slack/e-mail). Stub:

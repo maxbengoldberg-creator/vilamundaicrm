@@ -124,6 +124,23 @@ export const TOOLS = [
     },
   },
   {
+    name: 'salvar_condicoes',
+    description: 'Salva as condições de pagamento acordadas com o lead na negociação. Use quando todas as condições estiverem combinadas, antes de coletar os dados pessoais.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        forma_pagamento: { type: 'string', description: 'Forma de pagamento acordada: "pix", "cartao" ou "misto"' },
+        parcelas: { type: 'integer', description: 'Número de parcelas no cartão. Use 1 para Pix.' },
+        desconto_pix: { type: 'boolean', description: 'true se o lead fechou com desconto de 5% no Pix' },
+        valor_total: { type: 'number', description: 'Valor total da reserva em reais' },
+        valor_sinal: { type: 'number', description: 'Valor do sinal em reais (30% do total ou valor acordado)' },
+        data_sinal: { type: 'string', description: 'Data combinada para pagamento do sinal (opcional), formato AAAA-MM-DD' },
+        observacoes: { type: 'string', description: 'Condições especiais acordadas, se houver (opcional)' },
+      },
+      required: ['forma_pagamento', 'parcelas', 'desconto_pix', 'valor_total', 'valor_sinal'],
+    },
+  },
+  {
     name: 'escalar_humano',
     description:
       'Transfere a conversa para um atendente humano e PAUSA a IA neste lead. Use quando o caso for sensível, de alto valor, reclamação, ou quando o lead pedir para falar com uma pessoa.',

@@ -34,7 +34,8 @@ app.listen(env.port, () => {
     query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS total_tokens_input  INTEGER     DEFAULT 0`),
     query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS total_tokens_output INTEGER     DEFAULT 0`),
     query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS total_custo_brl     NUMERIC(10,4) DEFAULT 0`),
-  ]).catch(err => console.error('[server] migrate custo falhou:', err.message));
+    query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS condicoes_pagamento JSONB DEFAULT '{}'`),
+  ]).catch(err => console.error('[server] migrate falhou:', err.message));
 
   // Job de morno: roda imediatamente e depois a cada 1 hora
   mornoJob();

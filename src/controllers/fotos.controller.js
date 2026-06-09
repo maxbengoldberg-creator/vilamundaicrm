@@ -5,9 +5,28 @@ export async function listFotos(req, res, next) {
   try {
     const { tipo_apto } = req.query;
     const { rows } = tipo_apto
-      ? await query('SELECT * FROM fotos WHERE tipo_apto = $1 ORDER BY created_at ASC', [tipo_apto])
-      : await query('SELECT * FROM fotos ORDER BY tipo_apto, created_at ASC');
+      ? await query('SELECT * FROM fotos WHERE tipo_apto = $1 ORDER BY ordem ASC NULLS LAST, created_at ASC', [tipo_apto])
+      : await query('SELECT * FROM fotos ORDER BY tipo_apto, ordem ASC NULLS LAST, created_at ASC');
     res.json(rows);
+  } catch (e) { next(e); }
+}
+
+export async function updateFoto(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { ordem, tipo_apto, descricao } = req.body;
+    const sets = [];
+    const vals = [];
+    if (ordem !== undefined) { sets.push(`ordem = $${vals.length+2}`); vals.push(ordem); }
+    if (tipo_apto !== undefined) { sets.push(`tipo_apto = $${vals.length+2}`); vals.push(tipo_apto); }
+    if (descricao !== undefined) { sets.push(`descricao = $${vals.length+2}`); vals.push(descricao); }
+    if (sets.length === 0) return res.status(400).json({ error: 'nenhum campo para atualizar' });
+    const { rows } = await query(
+      `UPDATE fotos SET ${sets.join(', ')} WHERE id = $1 RETURNING *`,
+      [id, ...vals]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'foto não encontrada' });
+    res.json(rows[0]);
   } catch (e) { next(e); }
 }
 

@@ -41,8 +41,10 @@ app.listen(env.port, () => {
       descricao  TEXT,
       url        TEXT NOT NULL,
       public_id  TEXT UNIQUE NOT NULL,
+      ordem      INTEGER,
       created_at TIMESTAMPTZ DEFAULT now()
     )`),
+    query(`ALTER TABLE fotos ADD COLUMN IF NOT EXISTS ordem INTEGER`),
   ]).catch(err => console.error('[server] migrate falhou:', err.message));
 
   // Job de morno: roda imediatamente e depois a cada 1 hora

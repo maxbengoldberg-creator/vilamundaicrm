@@ -87,7 +87,6 @@ export const TOOLS = [
           enum: ['apto-1-quarto-terreo', 'apto-1-quarto-superior', '2-quartos-terreo', '2-quartos-superior', 'area-externa', 'geral'],
           description: 'Nome da pasta no Cloudinary. Use "apto-1-quarto-superior" para fotos do apartamento de 1 quarto superior, "area-externa" para fotos da área comum/piscina, "geral" para fotos gerais da Vila.',
         },
-        legenda: { type: 'string', description: 'Legenda opcional para as mídias enviadas.' },
       },
       required: ['tipo_apto'],
     },

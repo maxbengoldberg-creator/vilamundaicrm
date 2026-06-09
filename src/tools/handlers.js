@@ -83,17 +83,16 @@ export const HANDLERS = {
 
   async enviar_midia(input, ctx) {
     const { rows } = await query(
-      `SELECT url, public_id FROM fotos WHERE tipo_apto = $1 ORDER BY created_at ASC`,
+      `SELECT url, public_id FROM fotos WHERE tipo_apto = $1 ORDER BY ordem ASC NULLS LAST, created_at ASC`,
       [input.tipo_apto]
     );
     if (rows.length === 0) {
       return { ok: false, erro: `Nenhuma foto encontrada para tipo_apto "${input.tipo_apto}". Sincronize as fotos via /api/v1/fotos/sync.` };
     }
-    const legenda = input.legenda || '';
     for (const foto of rows) {
       const isVideo = /\.(mp4|mov|avi|webm)$/i.test(foto.url);
-      if (isVideo) await zapi.sendVideo(ctx.phone, foto.url, legenda);
-      else await zapi.sendImage(ctx.phone, foto.url, legenda);
+      if (isVideo) await zapi.sendVideo(ctx.phone, foto.url, '');
+      else await zapi.sendImage(ctx.phone, foto.url, '');
     }
     return { ok: true, enviadas: rows.length, tipo_apto: input.tipo_apto };
   },

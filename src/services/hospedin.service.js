@@ -102,8 +102,9 @@ export const hospedin = {
       );
       return { ok: true, pms_id: data.id, codigo: data.searchable_code, status: data.status, raw: data };
     } catch (err) {
-      console.error('[hospedin] criarReserva:', err.response?.data || err.message);
-      return { ok: false, erro: 'Não foi possível criar a reserva no PMS.' };
+      const detalhe = err.response?.data || err.message;
+      console.error('[hospedin] criarReserva:', JSON.stringify(detalhe));
+      return { ok: false, erro: 'Não foi possível criar a reserva no PMS.', detalhe };
     }
   },
 };

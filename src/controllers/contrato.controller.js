@@ -1,7 +1,21 @@
 import { promises as fs } from 'fs';
 import * as Lead from '../models/lead.model.js';
 import { zapi } from '../services/zapi.service.js';
+import { hospedin } from '../services/hospedin.service.js';
 import { gerarContratoPdf, uploadPdf, limparWorkDir } from '../services/contrato.service.js';
+
+// DIAGNÓSTICO TEMPORÁRIO — tenta criar uma reserva de teste e devolve o erro real do PMS.
+export async function diagReserva(req, res) {
+  const r = await hospedin.criarReserva({
+    nome: 'Teste Diagnostico',
+    checkin: '2026-07-02',
+    checkout: '2026-07-05',
+    guests: 2,
+    place_type_id: 178135,
+    diaria: 290,
+  });
+  res.json(r);
+}
 
 const MSG_CONTRATO =
   'Segue contrato em anexo, leia por gentileza, confira se os dados estão corretos e assine pelo Gov.br, em seguida envie de volta para a nossa assinatura.';

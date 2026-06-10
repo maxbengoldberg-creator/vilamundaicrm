@@ -8,7 +8,7 @@ export const TOOLS = [
   {
     name: 'consultar_disponibilidade',
     description:
-      'Consulta no PMS Hospedin quais acomodações estão disponíveis para um período e número de hóspedes, com a tarifa de cada uma. A diária retornada JÁ vem ajustada pelo número de hóspedes informado — use exatamente esse valor, sem aplicar nenhum desconto adicional por conta própria. Se o número de hóspedes mudar na conversa, consulte de novo. Use sempre antes de prometer datas ou cotar.',
+      'Consulta no PMS Hospedin quais acomodações estão disponíveis para um período e número de hóspedes. Retorna, para cada acomodação, a diária JÁ ajustada pelo número de hóspedes e o total_estadia já calculado (diária × noites) — use esses valores exatamente como vieram, sem calcular nem descontar nada por conta própria. Se o número de hóspedes ou as datas mudarem na conversa, consulte de novo. Use sempre antes de prometer datas ou cotar.',
     input_schema: {
       type: 'object',
       properties: {

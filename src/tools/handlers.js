@@ -61,7 +61,15 @@ export const HANDLERS = {
   async consultar_disponibilidade(input) {
     const r = await hospedin.disponibilidade(input);
     if (r.ok && Array.isArray(r.disponiveis)) {
-      r.disponiveis = aplicarDescontoHospedes(r.disponiveis, input.guests);
+      r.disponiveis = aplicarDescontoHospedes(r.disponiveis, input.guests).map(d => {
+        const total = Math.round(d.diaria * r.noites * 100) / 100;
+        return {
+          ...d,
+          noites: r.noites,
+          total_estadia: total,
+          total_formatado: total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+        };
+      });
     }
     return r;
   },
@@ -138,13 +146,22 @@ export const HANDLERS = {
   },
 
   async criar_reserva(input, ctx) {
-    const tipo_apto = input.tipo_apto || ctx.lead.acomodacao;
+    // Ficha fresca: nome/acomodação podem ter sido salvos na mesma rodada.
+    const lead = (await Lead.findById(ctx.lead.id)) || ctx.lead;
+    const tipo_apto = input.tipo_apto || lead.acomodacao;
     const place_type_id = PLACE_TYPE_IDS[tipo_apto];
     if (!place_type_id) {
       return { ok: false, erro: `Tipo de apartamento inválido: "${tipo_apto}". Use a acomodação exata da consulta de disponibilidade.` };
     }
+    // Trava: a reserva tem que sair na acomodação que o lead escolheu (ficha).
+    if (lead.acomodacao && tipo_apto !== lead.acomodacao) {
+      return {
+        ok: false,
+        erro: `Bloqueado: a ficha do lead diz que ele escolheu "${lead.acomodacao}", mas você pediu "${tipo_apto}". Crie a reserva na acomodação escolhida pelo lead, ou atualize a ficha com extrair_dados_lead se ele mudou de escolha.`,
+      };
+    }
     const r = await hospedin.criarReserva({
-      nome: ctx.lead.nome,
+      nome: lead.nome,
       checkin: input.checkin,
       checkout: input.checkout,
       guests: input.guests,

@@ -40,6 +40,8 @@ export const hospedin = {
   async disponibilidade({ checkin, checkout, guests }) {
     try {
       const h = await authHeaders();
+      const noites = Math.round((new Date(checkout) - new Date(checkin)) / (1000 * 60 * 60 * 24));
+      if (!noites || noites < 1) return { ok: false, erro: 'Período inválido (checkout deve ser depois do checkin).' };
       const resultados = [];
       for (const pt of PLACE_TYPES) {
         if (guests && pt.occupants < Number(guests)) continue;
@@ -47,9 +49,16 @@ export const hospedin = {
           `${BASE}/${ACCOUNT_ID}/place_types/${pt.id}/rates_and_availabilities`,
           { headers: h, params: { start_date: checkin, end_date: checkout } }
         );
-        const disponivel = data.some(d => d.availability > 0);
-        if (!disponivel) continue;
-        const diaria = (data[0]?.rate_price || 0) / 100;
+        // Só as noites da estadia: a data do checkout não é cobrada.
+        const dias = data.filter(d => d.date >= checkin && d.date < checkout);
+        if (dias.length === 0) continue;
+        // TODAS as noites precisam ter vaga, não apenas alguma.
+        if (!dias.every(d => d.availability > 0)) continue;
+        // A tarifa pode variar por noite no calendário do PMS: soma as noites
+        // e usa a diária média, para o total bater com o calendário.
+        let totalBase = dias.reduce((a, d) => a + (d.rate_price || 0), 0) / 100;
+        if (dias.length !== noites) totalBase = (totalBase / dias.length) * noites;
+        const diaria = Math.round((totalBase / noites) * 100) / 100;
         resultados.push({
           place_type_id: pt.id,
           place_id: pt.places[0],
@@ -60,7 +69,7 @@ export const hospedin = {
           diaria_formatada: diaria.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
         });
       }
-      return { ok: true, disponiveis: resultados };
+      return { ok: true, noites, disponiveis: resultados };
     } catch (err) {
       console.error('[hospedin] disponibilidade:', err.response?.data || err.message);
       return { ok: false, erro: 'Não foi possível consultar a disponibilidade.' };
@@ -75,11 +84,16 @@ export const hospedin = {
 
   async criarReserva({ nome, checkin, checkout, guests, place_type_id, place_id, diaria }) {
     try {
+      if (!diaria || Number(diaria) <= 0) {
+        return { ok: false, erro: 'Valor da diária ausente ou inválido. Use a diária retornada pela consulta de disponibilidade.' };
+      }
       const h = await authHeaders();
       const guest = await hospedin.criarGuest(nome || 'Hóspede Vila Mundaí');
       const noites = Math.round((new Date(checkout) - new Date(checkin)) / (1000*60*60*24));
-      const daily_cents = Math.round((diaria || 100) * 100);
+      const daily_cents = Math.round(Number(diaria) * 100);
       const total_daily_cents = daily_cents * noites;
+      const totalReais = (total_daily_cents / 100).toFixed(2);
+      const nota = `Reserva criada pelo agente IA. Diária acordada: R$ ${Number(diaria).toFixed(2)} x ${noites} noites = R$ ${totalReais} (${guests} hóspedes).`;
       const pt = PLACE_TYPES.find(p => p.id === place_type_id) || PLACE_TYPES[0];
 
       // A disponibilidade é verificada por TIPO, mas a reserva exige uma unidade
@@ -103,13 +117,43 @@ export const hospedin = {
               total_daily_cents,
               adults: Number(guests) || 2,
               children: 0,
-              exempt: false,
+              exempt: 0,
               guest_id: guest.id,
               has_breakfast: false,
+              note: nota,
             },
             { headers: h }
           );
-          return { ok: true, pms_id: data.id, codigo: data.searchable_code, status: data.status, place_id: pid, raw: data };
+          // O POST ignora daily_cents e precifica pelo calendário do PMS.
+          // Corrige via PATCH e relê para confirmar o valor que ficou.
+          let final = data;
+          if ((data.daily_cents || 0) !== daily_cents) {
+            try {
+              await axios.patch(
+                `${BASE}/${ACCOUNT_ID}/reservations/${data.id}`,
+                { daily_cents, total_daily_cents },
+                { headers: h }
+              );
+              final = await axios.get(`${BASE}/${ACCOUNT_ID}/reservations/${data.id}`, { headers: h }).then(x => x.data);
+            } catch (e) {
+              console.warn('[hospedin] PATCH do valor falhou:', JSON.stringify(e.response?.data || e.message));
+            }
+          }
+          const lancada = (final.daily_cents || 0) / 100;
+          console.log(`[hospedin] reserva ${data.id} criada. diaria enviada=R$${diaria} | lancada=R$${lancada} | total_pms=R$${(final.total_amount || 0) / 100}`);
+          return {
+            ok: true,
+            pms_id: data.id,
+            codigo: data.searchable_code,
+            status: data.status,
+            place_id: pid,
+            diaria_lancada: lancada,
+            valor_total_pms: (final.total_amount || 0) / 100,
+            aviso: lancada !== Number(diaria)
+              ? `ATENÇÃO: o PMS não aceitou a diária de R$ ${Number(diaria).toFixed(2)} (ficou R$ ${lancada.toFixed(2)}). O valor acordado está registrado na nota da reserva para ajuste manual.`
+              : undefined,
+            raw: final,
+          };
         } catch (err) {
           ultimoErro = err.response?.data || err.message;
           const msg = JSON.stringify(ultimoErro);

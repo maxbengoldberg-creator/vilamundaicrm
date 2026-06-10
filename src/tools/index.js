@@ -8,7 +8,7 @@ export const TOOLS = [
   {
     name: 'consultar_disponibilidade',
     description:
-      'Consulta no PMS Hospedin quais acomodações estão disponíveis para um período e número de hóspedes, com a tarifa de cada uma. Use sempre antes de prometer datas ou cotar.',
+      'Consulta no PMS Hospedin quais acomodações estão disponíveis para um período e número de hóspedes, com a tarifa de cada uma. A diária retornada JÁ vem ajustada pelo número de hóspedes informado — use exatamente esse valor, sem aplicar nenhum desconto adicional por conta própria. Se o número de hóspedes mudar na conversa, consulte de novo. Use sempre antes de prometer datas ou cotar.',
     input_schema: {
       type: 'object',
       properties: {
@@ -121,7 +121,7 @@ export const TOOLS = [
           enum: ['1 Quarto - Térreo', '1 Quarto - Superior', '2 Quartos - Térreo', '2 Quartos - Superior'],
           description: 'Tipo de apartamento, exatamente como retornado pela consulta de disponibilidade (campo acomodacao).',
         },
-        valor: { type: 'number', description: 'Valor da diária em reais, vindo da consulta de disponibilidade.' },
+        valor: { type: 'number', description: 'Valor da DIÁRIA em reais (não o total da estadia), exatamente como retornado pela consulta de disponibilidade desta conversa — já ajustado pelo número de hóspedes. É esse valor que será lançado no PMS.' },
       },
       required: ['checkin', 'checkout', 'guests', 'tipo_apto', 'valor'],
     },

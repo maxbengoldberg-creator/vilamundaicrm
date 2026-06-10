@@ -18,6 +18,31 @@ const PLACE_TYPE_IDS = {
   '2 Quartos - Superior': 178729,
 };
 
+// Desconto na diária por número de hóspedes, por tipo de apto.
+// O preço do PMS é o cheio (ocupação máxima); aqui ajustamos para menos pessoas.
+// A diária retornada ao agente já sai corrigida — é ela que vai ao lead e ao PMS.
+const DESCONTO_POR_HOSPEDES = {
+  178135: { 4: 40, 3: 70, 2: 120 }, // 1 Quarto - Térreo (cheio = 5 pessoas)
+};
+
+function aplicarDescontoHospedes(disponiveis, guests) {
+  const g = Number(guests);
+  if (!g) return disponiveis;
+  return disponiveis.map(d => {
+    const tabela = DESCONTO_POR_HOSPEDES[d.place_type_id];
+    if (!tabela) return d;
+    // 1 hóspede paga como 2; acima do teto da tabela paga o preço cheio.
+    const desconto = tabela[Math.max(g, 2)] || 0;
+    if (!desconto) return d;
+    const diaria = Math.max(d.diaria - desconto, 0);
+    return {
+      ...d,
+      diaria,
+      diaria_formatada: diaria.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+    };
+  });
+}
+
 function nextStage(current) {
   if (current === 'morno') return MORNO_NEXT;
   const idx = STAGE_ORDER.indexOf(current);
@@ -35,6 +60,9 @@ function nextStage(current) {
 export const HANDLERS = {
   async consultar_disponibilidade(input) {
     const r = await hospedin.disponibilidade(input);
+    if (r.ok && Array.isArray(r.disponiveis)) {
+      r.disponiveis = aplicarDescontoHospedes(r.disponiveis, input.guests);
+    }
     return r;
   },
 

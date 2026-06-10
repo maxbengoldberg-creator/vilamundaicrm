@@ -48,17 +48,15 @@ function saudacao() {
 // conversa: dá ao Claude a saudação certa pelo horário e a instrução de
 // responder tudo — apresentação + o que o lead trouxer — em uma única
 // mensagem, em vez de mandar uma abertura fixa e esperar a próxima resposta.
-function primeiraMensagemContexto(veioDeAnuncio) {
-  if (veioDeAnuncio) {
-    // Lead de anúncio do Meta: a primeira mensagem é um texto automático do
-    // formulário (nome, email, telefone). Ignore o conteúdo — apenas cumprimente.
-    return `\n\nCONTEXTO — PRIMEIRA MENSAGEM, LEAD DE ANÚNCIO:
-Este lead veio de um anúncio do Meta. A mensagem que ele "enviou" é um texto automático do formulário (nome, email, telefone) — NÃO responda a esse conteúdo, NÃO comente sobre a Vila, NÃO pergunte datas, NÃO use ferramentas.
-Responda APENAS com a saudação e apresentação pessoal, exatamente neste tom: "${saudacao()}, eu sou o Max, Host da Vila Mundaí, tudo bem?" Depois aguarde a resposta do lead.`;
-  }
+function primeiraMensagemContexto() {
   return `\n\nCONTEXTO — PRIMEIRA MENSAGEM DESTA CONVERSA:
 O lead ainda não te conhece. Use a saudação "${saudacao()}" e apresente-se brevemente como Max, host da Vila Mundaí.
 Na MESMA mensagem, responda também ao que o lead trouxer (pergunta, pedido, comentário) — nunca mande só a saudação/apresentação e deixe o resto para a próxima resposta. O lead não pode ficar sem resposta ao que ele perguntou.`;
+}
+
+// Mensagem fixa de abertura para leads de anúncio (Meta Ads) na primeira mensagem.
+function aberturaAnuncio() {
+  return `${saudacao()}, eu sou o Max, host da Vila Mundaí, tudo bem? Me conta, já tem datas pra viagem?`;
 }
 
 // Detecta a mensagem automática de anúncio "Click to WhatsApp" do Meta.
@@ -197,6 +195,18 @@ export async function handleIncoming({ phone, text, pushName }) {
   }
 
   try {
+  // Lead de anúncio (Meta Ads) na primeira mensagem: abertura fixa, 10s de delay,
+  // sem chamar o Claude. A mensagem do lead é o texto automático do formulário.
+  if (isFirstMessage && lead.origem === 'meta_ads') {
+    await delay(10000);
+    const abertura = aberturaAnuncio();
+    await zapi.sendText(phone, abertura);
+    await Message.create({ conversation_id: conv.id, role: 'assistant', content: abertura, raw: { role: 'assistant', content: abertura }, sender: 'ia' });
+    await Conversation.touch(conv.id, abertura);
+    console.log(`[agente] lead ${phone} anúncio — abertura fixa enviada (delay 10s)`);
+    return { ok: true, reply: abertura, modo: 'abertura_anuncio' };
+  }
+
   if (isFirstMessage) await delay(40000);
   else if (isMsgCurta(text)) await delay(15000);
   else await delay(5000);
@@ -218,9 +228,8 @@ export async function handleIncoming({ phone, text, pushName }) {
       getStageModel(effectiveStage),
     ]);
     if (isFirstMessage) {
-      const veioDeAnuncio = lead.origem === 'meta_ads';
-      system += primeiraMensagemContexto(veioDeAnuncio);
-      console.log(`[agente] lead ${phone} primeira mensagem da conversa — contexto de abertura injetado (anuncio=${veioDeAnuncio})`);
+      system += primeiraMensagemContexto();
+      console.log(`[agente] lead ${phone} primeira mensagem da conversa — contexto de abertura injetado no system prompt`);
     }
     if (!system || !system.trim()) {
       console.error(`[agente] ALERTA prompt VAZIO para stage=${effectiveStage} (cache/banco?). lead ${phone}`);

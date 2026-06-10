@@ -61,6 +61,18 @@ O lead ainda não te conhece. Use a saudação "${saudacao()}" e apresente-se br
 Na MESMA mensagem, responda também ao que o lead trouxer (pergunta, pedido, comentário) — nunca mande só a saudação/apresentação e deixe o resto para a próxima resposta. O lead não pode ficar sem resposta ao que ele perguntou.`;
 }
 
+// Detecta a mensagem automática de anúncio "Click to WhatsApp" do Meta.
+// Ex.: "Olá! Preenchi seu formulário e gostaria de saber mais sobre sua empresa.
+//       nome_completo: ... email: ... telefone: ..."
+function pareceAnuncio(text) {
+  if (!text) return false;
+  const t = String(text).toLowerCase();
+  if (/preenchi\s+(seu|o)\s+formul[aá]rio/.test(t)) return true;
+  // padrão de campos do formulário colados na mensagem
+  const campos = [/nome_completo\s*:/, /telefone\s*:/, /e-?mail\s*:/];
+  return campos.filter(re => re.test(t)).length >= 2;
+}
+
 function isMsgCurta(text) {
   return text.trim().split(/\s+/).length <= 6;
 }
@@ -165,6 +177,14 @@ export async function handleIncoming({ phone, text, pushName }) {
   let conv = await Conversation.findOpenByPhone(phone);
   const isFirstMessage = !conv;
   if (!conv) conv = await Conversation.create({ lead_id: lead.id, phone });
+
+  // Anúncio Click-to-WhatsApp: detecta pelo texto automático do formulário.
+  // Marca a origem no lead (pra refletir no CRM) já que não passa pelo webhook do Meta.
+  if (isFirstMessage && lead.origem !== 'meta_ads' && pareceAnuncio(text)) {
+    await Lead.update(lead.id, { origem: 'meta_ads' });
+    lead.origem = 'meta_ads';
+    console.log(`[agente] lead ${phone} detectado como anúncio pelo texto — origem marcada como meta_ads`);
+  }
 
   await Message.create({ conversation_id: conv.id, role: 'user', content: text, sender: 'lead' });
   await Conversation.touch(conv.id, text);

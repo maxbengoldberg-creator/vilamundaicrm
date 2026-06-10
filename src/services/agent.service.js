@@ -48,7 +48,14 @@ function saudacao() {
 // conversa: dá ao Claude a saudação certa pelo horário e a instrução de
 // responder tudo — apresentação + o que o lead trouxer — em uma única
 // mensagem, em vez de mandar uma abertura fixa e esperar a próxima resposta.
-function primeiraMensagemContexto() {
+function primeiraMensagemContexto(veioDeAnuncio) {
+  if (veioDeAnuncio) {
+    // Lead de anúncio do Meta: a primeira mensagem é um texto automático do
+    // formulário (nome, email, telefone). Ignore o conteúdo — apenas cumprimente.
+    return `\n\nCONTEXTO — PRIMEIRA MENSAGEM, LEAD DE ANÚNCIO:
+Este lead veio de um anúncio do Meta. A mensagem que ele "enviou" é um texto automático do formulário (nome, email, telefone) — NÃO responda a esse conteúdo, NÃO comente sobre a Vila, NÃO pergunte datas, NÃO use ferramentas.
+Responda APENAS com a saudação e apresentação pessoal, exatamente neste tom: "${saudacao()}, eu sou o Max, Host da Vila Mundaí, tudo bem?" Depois aguarde a resposta do lead.`;
+  }
   return `\n\nCONTEXTO — PRIMEIRA MENSAGEM DESTA CONVERSA:
 O lead ainda não te conhece. Use a saudação "${saudacao()}" e apresente-se brevemente como Max, host da Vila Mundaí.
 Na MESMA mensagem, responda também ao que o lead trouxer (pergunta, pedido, comentário) — nunca mande só a saudação/apresentação e deixe o resto para a próxima resposta. O lead não pode ficar sem resposta ao que ele perguntou.`;
@@ -191,8 +198,9 @@ export async function handleIncoming({ phone, text, pushName }) {
       getStageModel(effectiveStage),
     ]);
     if (isFirstMessage) {
-      system += primeiraMensagemContexto();
-      console.log(`[agente] lead ${phone} primeira mensagem da conversa — contexto de abertura injetado no system prompt`);
+      const veioDeAnuncio = lead.origem === 'meta_ads';
+      system += primeiraMensagemContexto(veioDeAnuncio);
+      console.log(`[agente] lead ${phone} primeira mensagem da conversa — contexto de abertura injetado (anuncio=${veioDeAnuncio})`);
     }
     if (!system || !system.trim()) {
       console.error(`[agente] ALERTA prompt VAZIO para stage=${effectiveStage} (cache/banco?). lead ${phone}`);

@@ -391,7 +391,7 @@ const COLS=[
   {id:'ganho',nome:'Ganho',cor:'#34d399'},
   {id:'morno',nome:'Morno',cor:'#64748b'},
 ];
-const S={view:'dashboard',activeConv:null,convs:[],leads:[],clientes:[],autos:[],msgs:[],drag:null,automPct:75,bNodes:[],bName:'Nova automação',robotOn:true};
+const S={view:'dashboard',activeConv:null,convs:[],leads:[],clientes:[],autos:[],msgs:[],drag:null,automPct:75,bNodes:[],bName:'Nova automação',robotOn:true,chatPoll:null,_msgSig:'',_convSig:''};
 
 /* ============================================================
    NAVEGAÇÃO
@@ -411,7 +411,7 @@ const NAV2=[
 function railItem(n){return `<div class="ri ${S.view===n.id?'active':''}" onclick="go('${n.id}')"><i class="ti ${n.ic}"></i>${n.bdg?`<span class="bdg">${n.bdg}</span>`:''}<span class="lb2">${n.nm}</span></div>`}
 function renderRail(){document.getElementById('rail').innerHTML=`<div class="top-logo"><i class="ti ti-brand-zapier"></i></div><div class="ws">V</div>${NAV.map(railItem).join('')}<div class="sp"></div>${NAV2.map(railItem).join('')}`}
 
-async function go(v){S.view=v;renderRail();document.getElementById('main').innerHTML=loading();document.getElementById('main').scrollTop=0;await renderMain()}
+async function go(v){stopChatPoll();S.view=v;renderRail();document.getElementById('main').innerHTML=loading();document.getElementById('main').scrollTop=0;await renderMain()}
 
 /* ============================================================
    RENDER ROUTER
@@ -837,13 +837,7 @@ async function vChat(){
         </div>
         <div class="cl-sr"><i class="ti ti-search"></i><input placeholder="Buscar…"></div>
       </div>
-      <div class="cl-convs">
-        ${convs.length?convs.map(c=>`<div class="cv ${c.id===S.activeConv?'active':''}" onclick="openConv(${c.id})">
-          <div class="cav" style="background:${avColor(c.nome||c.phone)}">${initials(c.nome||c.phone)}<span class="wa"><i class="ti ti-brand-whatsapp"></i></span></div>
-          <div class="cc"><div class="cn"><b>${c.nome||c.phone}</b><small>${new Date(c.last_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</small></div>
-            <div class="pv">${c.ai_enabled?'<b style="color:var(--blue)">IA:</b> ':''} ${c.last_message||'…'}</div></div>
-        </div>`).join(''):`<div style="color:var(--txt-3);font-size:12.5px;text-align:center;padding:40px">Nenhuma conversa ainda.<br>O agente responde automaticamente quando alguém escrever no WhatsApp.</div>`}
-      </div>
+      <div class="cl-convs">${convListHTML(convs)}</div>
     </div>
     <div class="chat-main">
       ${ac?`
@@ -853,10 +847,7 @@ async function vChat(){
         <div class="ha"><span class="tag ${ac.ai_enabled?'green':'amber'} dot">${ac.ai_enabled?'IA ativa':'Humano'}</span>
           <button class="finish-btn" onclick="finishConv(${ac.id})"><i class="ti ti-circle-check"></i> Finalizar</button></div>
       </div>
-      <div class="cm-body" id="cmBody">
-        <div class="day-sep">Histórico</div>
-        ${msgs.map(m=>msgHTML(m)).join('')||'<div style="color:var(--txt-3);font-size:12.5px;text-align:center;padding:30px">Sem mensagens ainda</div>'}
-      </div>
+      <div class="cm-body" id="cmBody">${msgsBodyHTML(msgs)}</div>
       <div class="cm-foot">
         <div class="cm-input">
           <div class="tools"><span class="ti2"><i class="ti ti-robot"></i></span></div>
@@ -875,6 +866,46 @@ async function vChat(){
     </div>
   </div></div>`;
   if(S.activeConv){const b=document.getElementById('cmBody');if(b)b.scrollTop=b.scrollHeight;}
+  S._convSig=convSig(convs);S._msgSig=msgSig(msgs);
+  startChatPoll();
+}
+function convItemHTML(c){return `<div class="cv ${c.id===S.activeConv?'active':''}" onclick="openConv(${c.id})">
+  <div class="cav" style="background:${avColor(c.nome||c.phone)}">${initials(c.nome||c.phone)}<span class="wa"><i class="ti ti-brand-whatsapp"></i></span></div>
+  <div class="cc"><div class="cn"><b>${c.nome||c.phone}</b><small>${new Date(c.last_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</small></div>
+    <div class="pv">${c.ai_enabled?'<b style="color:var(--blue)">IA:</b> ':''} ${c.last_message||'…'}</div></div>
+</div>`}
+function convListHTML(convs){return convs.length?convs.map(convItemHTML).join(''):`<div style="color:var(--txt-3);font-size:12.5px;text-align:center;padding:40px">Nenhuma conversa ainda.<br>O agente responde automaticamente quando alguém escrever no WhatsApp.</div>`}
+function msgsBodyHTML(msgs){return `<div class="day-sep">Histórico</div>`+(msgs.map(m=>msgHTML(m)).join('')||'<div style="color:var(--txt-3);font-size:12.5px;text-align:center;padding:30px">Sem mensagens ainda</div>')}
+function convSig(convs){return (convs||[]).map(c=>`${c.id}:${c.last_at}:${c.last_message}:${c.ai_enabled}`).join('|')}
+function msgSig(msgs){if(!msgs||!msgs.length)return '0';const l=msgs[msgs.length-1];return `${msgs.length}:${l.created_at}:${l.content}`}
+function startChatPoll(){stopChatPoll();S.chatPoll=setInterval(pollChat,4000)}
+function stopChatPoll(){if(S.chatPoll){clearInterval(S.chatPoll);S.chatPoll=null}}
+/* Atualização automática do chat em tempo real — independe do estado da IA.
+   Atualiza só a lista de conversas e as mensagens, sem recriar o input nem
+   perder o que o operador está digitando. */
+async function pollChat(){
+  if(S.view!=='chat'){stopChatPoll();return}
+  if(document.hidden)return;
+  let convs;
+  try{convs=await GET('/api/v1/conversations')}catch(e){return}
+  S.convs=convs;
+  const cs=convSig(convs);
+  if(cs!==S._convSig){
+    S._convSig=cs;
+    const listEl=document.querySelector('.cl-convs');
+    if(listEl)listEl.innerHTML=convListHTML(convs);
+  }
+  if(!S.activeConv)return;
+  let msgs;
+  try{msgs=await GET(`/api/v1/conversations/${S.activeConv}/messages`)}catch(e){return}
+  const ms=msgSig(msgs);
+  if(ms===S._msgSig)return;
+  S._msgSig=ms;S.msgs=msgs;
+  const b=document.getElementById('cmBody');
+  if(!b)return;
+  const nearBottom=b.scrollHeight-b.scrollTop-b.clientHeight<140;
+  b.innerHTML=msgsBodyHTML(msgs);
+  if(nearBottom)b.scrollTop=b.scrollHeight;
 }
 function msgHTML(m){
   if(m.sender==='ia'||m.sender==='bot')return `<div class="msg bot"><div class="bm"><span class="rb"><i class="ti ti-robot"></i></span> Agente IA</div>${m.content||''}<small>${new Date(m.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</small></div>`;

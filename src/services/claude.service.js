@@ -9,12 +9,13 @@ export async function buildSystemPrompt(lead) {
   return buildStagePrompt(lead);
 }
 
-export async function callClaude({ system, messages, tools, model, lead_id }) {
+export async function callClaude({ system, messages, tools, tool_choice, model, lead_id }) {
   const resp = await anthropic.messages.create({
     model: model || env.anthropic.model,
     max_tokens: env.anthropic.maxTokens,
     system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
     tools,
+    ...(tool_choice ? { tool_choice } : {}),
     messages,
   });
   const i = resp.usage.input_tokens;

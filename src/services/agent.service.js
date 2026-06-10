@@ -11,7 +11,9 @@ import * as Conversation from '../models/conversation.model.js';
 import * as Message from '../models/message.model.js';
 import * as AutomationStage from '../models/automation_stage.model.js';
 
-const MAX_TOOL_ROUNDS = 6;
+// O fechamento da venda encadeia até 6 ferramentas numa única resposta do lead
+// (extrair dados, salvar condições, 2x mover funil, criar reserva, escalar).
+const MAX_TOOL_ROUNDS = 10;
 
 // Resolve qual stage de prompt realmente usar, aplicando condicionais por tag.
 // Item 1: tag "ganho" auto-corrige o stage no banco se necessário.
@@ -219,6 +221,7 @@ export async function handleIncoming({ phone, text, pushName }) {
   // JUNTO com um tool_use (stop_reason=tool_use); esse texto precisa ser enviado
   // ao lead, senão a fala se perde e na rodada seguinte o modelo não repete (retorna ~vazio).
   const partes = [];
+  let lastStop = null;
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     lead = await Lead.findByPhone(phone);
@@ -236,6 +239,7 @@ export async function handleIncoming({ phone, text, pushName }) {
     }
     console.log(`[agente] lead ${phone} round=${round} stage=${lead.stage} prompt=${effectiveStage} model=${model} system_len=${system?.length || 0} msgs=${messages.length}`);
     const resp = await callClaude({ system, messages, tools: TOOLS, model, lead_id: lead.id });
+    lastStop = resp.stop_reason;
 
     const tipos = Array.isArray(resp.content) ? resp.content.map(b => b.type) : [typeof resp.content];
     const texto = textOf(resp.content);
@@ -274,6 +278,31 @@ export async function handleIncoming({ phone, text, pushName }) {
       continue;
     }
     break;
+  }
+
+  // Se as rodadas estouraram com o modelo ainda encadeando ferramentas, o texto
+  // de fechamento nunca foi gerado e o lead ficaria no vácuo. Força uma última
+  // resposta SÓ de texto (tool_choice none) para encerrar a fala.
+  if (lastStop === 'tool_use') {
+    console.warn(`[agente] lead ${phone} rodadas esgotadas em tool_use — forçando resposta final de texto`);
+    try {
+      lead = await Lead.findByPhone(phone);
+      const effectiveStage = await resolveEffectiveStage(lead);
+      const [system, model] = await Promise.all([
+        buildSystemPrompt({ ...lead, stage: effectiveStage }),
+        getStageModel(effectiveStage),
+      ]);
+      const resp = await callClaude({ system, messages, tools: TOOLS, tool_choice: { type: 'none' }, model, lead_id: lead.id });
+      const texto = textOf(resp.content);
+      if (texto && texto.trim()) {
+        partes.push(texto.trim());
+        const assistantMsg = { role: 'assistant', content: resp.content };
+        messages.push(assistantMsg);
+        await Message.create({ conversation_id: conv.id, role: 'assistant', content: texto, raw: assistantMsg, sender: 'ia' });
+      }
+    } catch (e) {
+      console.error(`[agente] lead ${phone} ERRO no fechamento forçado:`, e.message);
+    }
   }
 
   // Junta tudo que o Claude falou nas rodadas (texto solto + texto junto a tool_use).

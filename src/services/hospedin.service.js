@@ -139,18 +139,21 @@ export const hospedin = {
               console.warn('[hospedin] PATCH do valor falhou:', JSON.stringify(e.response?.data || e.message));
             }
           }
-          const lancada = (final.daily_cents || 0) / 100;
-          console.log(`[hospedin] reserva ${data.id} criada. diaria enviada=R$${diaria} | lancada=R$${lancada} | total_pms=R$${(final.total_amount || 0) / 100}`);
+          // O PMS zera daily_cents mas registra o valor no total_amount —
+          // o que vale financeiramente é o total, então é ele que conferimos.
+          const totalPms = (final.total_amount || 0) / 100;
+          const totalEsperado = total_daily_cents / 100;
+          const valorOk = Math.abs(totalPms - totalEsperado) < 0.01;
+          console.log(`[hospedin] reserva ${data.id} criada. diaria=R$${diaria} | total esperado=R$${totalEsperado} | total_pms=R$${totalPms} | ok=${valorOk}`);
           return {
             ok: true,
             pms_id: data.id,
             codigo: data.searchable_code,
             status: data.status,
             place_id: pid,
-            diaria_lancada: lancada,
-            valor_total_pms: (final.total_amount || 0) / 100,
-            aviso: lancada !== Number(diaria)
-              ? `ATENÇÃO: o PMS não aceitou a diária de R$ ${Number(diaria).toFixed(2)} (ficou R$ ${lancada.toFixed(2)}). O valor acordado está registrado na nota da reserva para ajuste manual.`
+            valor_total_pms: totalPms,
+            aviso: !valorOk
+              ? `ATENÇÃO: o valor total no PMS ficou R$ ${totalPms.toFixed(2)} em vez de R$ ${totalEsperado.toFixed(2)}. O valor acordado está registrado na nota da reserva para ajuste manual.`
               : undefined,
             raw: final,
           };

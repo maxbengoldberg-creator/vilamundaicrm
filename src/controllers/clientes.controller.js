@@ -1,5 +1,7 @@
 import * as Cliente from '../models/cliente.model.js';
 import * as Lead from '../models/lead.model.js';
+import * as Conversation from '../models/conversation.model.js';
+import * as Message from '../models/message.model.js';
 import { hospedin } from '../services/hospedin.service.js';
 import { zapi } from '../services/zapi.service.js';
 import * as Setting from '../models/setting.model.js';
@@ -77,8 +79,12 @@ export async function enviarBoasVindas(req, res, next) {
       ...(cliente.pessoas ? { guests: cliente.pessoas } : {}),
       ...(valorCotado ? { valor_cotado: valorCotado } : {}),
     });
-    // Vincula conversas abertas deste telefone ao lead (para a ficha aparecer).
+    // Garante uma conversa aberta e grava a boas-vindas no painel (como humano).
+    let conv = await Conversation.findOpenByPhone(cliente.phone);
+    if (!conv) conv = await Conversation.create({ lead_id: lead.id, phone: cliente.phone });
     await query(`UPDATE conversations SET lead_id = $1 WHERE phone = $2 AND lead_id IS NULL`, [lead.id, cliente.phone]);
+    await Message.create({ conversation_id: conv.id, role: 'assistant', content: msg, sender: 'humano' });
+    await Conversation.touch(conv.id, msg);
 
     res.json({ ok: true, mensagem: msg });
   } catch (e) { next(e); }

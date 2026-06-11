@@ -45,13 +45,21 @@ export async function countByConversation(conversation_id) {
 
 // Já existe mensagem com este conteúdo nesta conversa nos últimos `segundos`?
 // Usado para deduplicar ecos de mensagens fromMe (IA/CRM já gravaram).
+// Faz match por substring porque o agente envia uma resposta em vários blocos
+// (split por \n\n), mas grava a resposta inteira numa só mensagem: cada bloco
+// ecoado pela Z-API é um pedaço do conteúdo salvo. Só compara contra mensagens
+// que SAÍRAM do nosso número (ia/humano), nunca contra mensagens do lead.
 export async function existsRecentByContent(conversation_id, content, segundos = 120) {
+  const txt = String(content || '').trim();
+  if (!txt) return true; // vazio: não grava
   const { rows } = await query(
     `SELECT 1 FROM messages
-      WHERE conversation_id = $1 AND content = $2
+      WHERE conversation_id = $1
+        AND sender IN ('ia','humano')
         AND created_at > now() - ($3 || ' seconds')::interval
+        AND (content = $2 OR position($2 in content) > 0 OR position(content in $2) > 0)
       LIMIT 1`,
-    [conversation_id, content, String(segundos)]
+    [conversation_id, txt, String(segundos)]
   );
   return rows.length > 0;
 }

@@ -60,7 +60,9 @@ const REGRA_PRECO = `
 
 REGRA DE PREÇO (vale em qualquer etapa, prioridade máxima):
 O preço depende do número de hóspedes e das datas — quem calcula é o PMS.
-Se o lead mencionar QUALQUER mudança no tamanho do grupo (mais uma pessoa, primo, amigo, criança, "e se formos X") ou perguntar o valor para outra quantidade de pessoas:
+Se o lead mencionar QUALQUER mudança no tamanho do grupo (mais uma pessoa, primo, amigo, criança, "e se formos X"):
+- Se o novo total for inferível (ex: "éramos 2, primo vai junto" → 3), calcule você mesmo e confirme diretamente: "Seriam 3 então, deixa eu verificar o valor para 3 pessoas." NÃO pergunte o total quando a conta é simples e evidente.
+- Se for realmente ambíguo (ex: "vamos ser um grupo"), aí pergunte.
 1. Atualize a ficha com extrair_dados_lead (novo guests).
 2. Reconsulte com consultar_disponibilidade usando o novo número.
 3. Apresente o novo total retornado.

@@ -817,15 +817,19 @@ async function abrirBuilder(id){
    CHAT / ATENDIMENTO
    ============================================================ */
 async function vChat(){
-  const convs=await GET('/api/v1/conversations').catch(()=>[]);
+  const [convs,robot]=await Promise.all([
+    GET('/api/v1/conversations').catch(()=>[]),
+    GET('/api/v1/robot/status').catch(()=>({enabled:true})),
+  ]);
   S.convs=convs;
-  const robot=await GET('/api/v1/robot/status').catch(()=>({enabled:true}));
   S.robotOn=robot.enabled!==false;
-  if(!S.activeConv&&convs.length)S.activeConv=convs[0].id;
+  const vis=visibleConvs();
+  if(!S.activeConv&&vis.length)S.activeConv=vis[0].id;
+  if(S.activeConv&&!convs.find(c=>c.id===S.activeConv))S.activeConv=vis[0]?.id||null;
   let msgs=[];
   if(S.activeConv)msgs=await GET(`/api/v1/conversations/${S.activeConv}/messages`).catch(()=>[]);
   S.msgs=msgs;
-  const ac=convs.find(c=>c.id===S.activeConv)||convs[0];
+  const ac=convs.find(c=>c.id===S.activeConv)||null;
   document.getElementById('main').innerHTML=`<div class="view active" style="height:100vh">
   <div class="chat-layout">
     <div class="cl-list">
@@ -835,85 +839,200 @@ async function vChat(){
           <div style="flex:1"><b style="font-size:12.5px;color:#fff;display:block">Agente ${S.robotOn?'ativo':'desligado'}</b><span style="font-size:10.5px;color:var(--txt-2)">${S.robotOn?'respondendo no automático':'sem responder ninguém'}</span></div>
           <span class="switch ${S.robotOn?'':'off'}" onclick="toggleRobotGeral(this)"></span>
         </div>
-        <div class="cl-sr"><i class="ti ti-search"></i><input placeholder="Buscar…"></div>
+        <div class="cl-sr"><i class="ti ti-search"></i><input id="chatSearch" placeholder="Buscar nome ou telefone…" value="${(S.chatSearch||'').replace(/"/g,'&quot;')}" oninput="S.chatSearch=this.value;refreshConvList()"></div>
+        <select onchange="S.chatFilter=this.value;refreshConvList()" style="width:100%;margin-top:8px;height:34px;background:var(--surf);border:1px solid var(--line-2);border-radius:8px;color:var(--txt);padding:0 9px;font-size:12px;font-family:inherit">
+          <option value="todos" ${(S.chatFilter||'todos')==='todos'?'selected':''}>Funil: todos</option>
+          ${COLS.map(c=>`<option value="${c.id}" ${S.chatFilter===c.id?'selected':''}>${c.nome}</option>`).join('')}
+        </select>
       </div>
-      <div class="cl-convs">${convListHTML(convs)}</div>
+      <div class="cl-convs" id="clConvs">${convListHTML()}</div>
     </div>
     <div class="chat-main">
-      ${ac?`
-      <div class="cm-head">
-        <div class="cav" style="background:${avColor(ac.nome||ac.phone)}">${initials(ac.nome||ac.phone)}</div>
-        <div><b>${ac.nome||ac.phone}</b><small>${ac.phone||''}</small></div>
-        <div class="ha"><span class="tag ${ac.ai_enabled?'green':'amber'} dot">${ac.ai_enabled?'IA ativa':'Humano'}</span>
-          <button class="finish-btn" onclick="finishConv(${ac.id})"><i class="ti ti-circle-check"></i> Finalizar</button></div>
-      </div>
-      <div class="cm-body" id="cmBody">${msgsBodyHTML(msgs)}</div>
-      <div class="cm-foot">
+      <div class="cm-head" id="cmHead" style="${ac?'':'display:none'}">${headHTML(ac)}</div>
+      <div class="cm-body" id="cmBody">${ac?msgsBodyHTML(msgs):'<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--txt-3)">Selecione uma conversa</div>'}</div>
+      <div class="cm-foot" style="${ac?'':'display:none'}">
         <div class="cm-input">
           <div class="tools"><span class="ti2"><i class="ti ti-robot"></i></span></div>
-          <div class="box"><input placeholder="Digite para enviar manualmente…" id="cmInput" onkeydown="if(event.key==='Enter')sendMsg(${ac.lead_id},${ac.id})"><i class="ti ti-mood-smile" style="color:var(--txt-3)"></i></div>
-          <button class="btn blue-s" onclick="sendMsg(${ac.lead_id},${ac.id})"><i class="ti ti-send-2"></i></button>
+          <div class="box"><input placeholder="Digite para enviar manualmente…" id="cmInput" onkeydown="if(event.key==='Enter')sendMsg()"><i class="ti ti-mood-smile" style="color:var(--txt-3)"></i></div>
+          <button class="btn blue-s" onclick="sendMsg()"><i class="ti ti-send-2"></i></button>
         </div>
-      </div>`:
-      `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--txt-3)">Selecione uma conversa</div>`}
+      </div>
     </div>
-    <div class="chat-info-panel">
-      ${ac?`<div class="ci-av" style="background:${avColor(ac.nome||ac.phone)}">${initials(ac.nome||ac.phone)}</div>
-        <b style="font-size:16px;color:#fff">${ac.nome||'Lead'}</b>
-        <div style="font-size:12px;color:var(--txt-3);margin-top:2px">${ac.phone||''}</div>
-        <div class="info-blk"><div class="il2">Etapa</div><span class="tag blue dot">${COLS.find(c=>c.id===ac.stage)?.nome||ac.stage||'—'}</span></div>
-        <div class="info-blk"><div class="il2">IA</div><span class="tag ${ac.ai_enabled?'green':'amber'} dot">${ac.ai_enabled?'Piloto automático':'Atendimento humano'}</span></div>`:''}
-    </div>
+    <div class="chat-info-panel" id="chatInfo">${fichaHTML(ac)}</div>
   </div></div>`;
-  if(S.activeConv){const b=document.getElementById('cmBody');if(b)b.scrollTop=b.scrollHeight;}
-  S._convSig=convSig(convs);S._msgSig=msgSig(msgs);
+  if(ac){const b=document.getElementById('cmBody');if(b)b.scrollTop=b.scrollHeight;}
+  S._convSig=convSig(convs);S._msgSig=msgSig(msgs);S._fichaSig=ac?fichaSig(ac):'';
+  if(ac){
+    POST(`/api/v1/conversations/${ac.id}/read`,{}).catch(()=>null);
+    ac.unread=0;
+    loadResumo(ac.id);
+  }
   startChatPoll();
 }
-function convItemHTML(c){return `<div class="cv ${c.id===S.activeConv?'active':''}" onclick="openConv(${c.id})">
+/* ---- lista de conversas: filtro, busca e ordenação por pendência ---- */
+function aguardandoHumano(c){return Number(c.unread)>0&&(!c.ai_enabled||!S.robotOn)}
+function visibleConvs(){
+  const q=(S.chatSearch||'').toLowerCase().trim();
+  const f=S.chatFilter||'todos';
+  return (S.convs||[])
+    .filter(c=>f==='todos'||c.stage===f)
+    .filter(c=>!q||String(c.nome||'').toLowerCase().includes(q)||String(c.phone||'').includes(q))
+    .sort((a,b)=>{
+      const ag=(aguardandoHumano(b)?1:0)-(aguardandoHumano(a)?1:0);if(ag)return ag;
+      const un=Number(b.unread||0)-Number(a.unread||0);if(un)return un;
+      return new Date(b.last_at)-new Date(a.last_at);
+    });
+}
+function convItemHTML(c){
+  const st=COLS.find(x=>x.id===c.stage);
+  const un=Number(c.unread||0);
+  const ag=aguardandoHumano(c);
+  return `<div class="cv ${c.id===S.activeConv?'active':''}" data-id="${c.id}" onclick="openConv(${c.id})">
   <div class="cav" style="background:${avColor(c.nome||c.phone)}">${initials(c.nome||c.phone)}<span class="wa"><i class="ti ti-brand-whatsapp"></i></span></div>
-  <div class="cc"><div class="cn"><b>${c.nome||c.phone}</b><small>${new Date(c.last_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</small></div>
-    <div class="pv">${c.ai_enabled?'<b style="color:var(--blue)">IA:</b> ':''} ${c.last_message||'…'}</div></div>
+  <div class="cc">
+    <div class="cn"><b style="${un?'color:#fff':''}">${c.nome||c.phone}</b>
+      ${un?`<span style="background:var(--blue);color:#fff;font-size:9.5px;font-weight:700;border-radius:10px;padding:1px 6px;flex-shrink:0">${un}</span>`:''}
+      <small>${new Date(c.last_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</small></div>
+    <div class="pv" style="${un?'color:var(--txt);font-weight:600':''}">${c.last_message||'…'}</div>
+    <div style="margin-top:4px;display:flex;gap:4px;align-items:center;flex-wrap:wrap">
+      ${st?`<span style="font-size:9px;font-weight:700;padding:1px 7px;border-radius:4px;background:${st.cor}22;border:1px solid ${st.cor}55;color:${st.cor};line-height:1.7">${st.nome}</span>`:''}
+      ${ag?`<span style="font-size:9px;font-weight:700;padding:1px 7px;border-radius:4px;background:rgba(251,146,60,.18);border:1px solid rgba(251,146,60,.45);color:#fb923c;line-height:1.7">AGUARDANDO HUMANO</span>`:''}
+    </div>
+  </div>
 </div>`}
-function convListHTML(convs){return convs.length?convs.map(convItemHTML).join(''):`<div style="color:var(--txt-3);font-size:12.5px;text-align:center;padding:40px">Nenhuma conversa ainda.<br>O agente responde automaticamente quando alguém escrever no WhatsApp.</div>`}
-function msgsBodyHTML(msgs){return `<div class="day-sep">Histórico</div>`+(msgs.map(m=>msgHTML(m)).join('')||'<div style="color:var(--txt-3);font-size:12.5px;text-align:center;padding:30px">Sem mensagens ainda</div>')}
-function convSig(convs){return (convs||[]).map(c=>`${c.id}:${c.last_at}:${c.last_message}:${c.ai_enabled}`).join('|')}
-function msgSig(msgs){if(!msgs||!msgs.length)return '0';const l=msgs[msgs.length-1];return `${msgs.length}:${l.created_at}:${l.content}`}
-function startChatPoll(){stopChatPoll();S.chatPoll=setInterval(pollChat,4000)}
-function stopChatPoll(){if(S.chatPoll){clearInterval(S.chatPoll);S.chatPoll=null}}
-/* Atualização automática do chat em tempo real — independe do estado da IA.
-   Atualiza só a lista de conversas e as mensagens, sem recriar o input nem
-   perder o que o operador está digitando. */
-async function pollChat(){
-  if(S.view!=='chat'){stopChatPoll();return}
-  if(document.hidden)return;
-  let convs;
-  try{convs=await GET('/api/v1/conversations')}catch(e){return}
-  S.convs=convs;
-  const cs=convSig(convs);
-  if(cs!==S._convSig){
-    S._convSig=cs;
-    const listEl=document.querySelector('.cl-convs');
-    if(listEl)listEl.innerHTML=convListHTML(convs);
+function convListHTML(){
+  const vis=visibleConvs();
+  return vis.length?vis.map(convItemHTML).join(''):`<div style="color:var(--txt-3);font-size:12.5px;text-align:center;padding:40px">Nenhuma conversa${(S.chatSearch||S.chatFilter&&S.chatFilter!=='todos')?' com esse filtro':' ainda'}.</div>`;
+}
+function refreshConvList(){const el=document.getElementById('clConvs');if(el)el.innerHTML=convListHTML()}
+/* ---- cabeçalho e ficha do lead ---- */
+function chatAiBadges(c){
+  if(!c||!c.lead_id)return '';
+  const on=!!c.ai_enabled;
+  const iaC=on?'#34d399':'#f87171',iaBg=on?'rgba(52,211,153,.18)':'rgba(248,113,113,.18)',iaBd=on?'rgba(52,211,153,.4)':'rgba(248,113,113,.4)';
+  const huC=!on?'#fbbf24':'#f87171',huBg=!on?'rgba(251,191,36,.18)':'rgba(248,113,113,.18)',huBd=!on?'rgba(251,191,36,.4)':'rgba(248,113,113,.4)';
+  return `<span onclick="toggleAIChat(${c.lead_id})" title="${on?'IA ativa — clique para passar ao humano':'Humano ativo — clique para reativar a IA'}" style="cursor:pointer;display:inline-flex;gap:4px;vertical-align:middle">
+    <span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:4px;background:${iaBg};border:1px solid ${iaBd};color:${iaC}">IA</span>
+    <span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:4px;background:${huBg};border:1px solid ${huBd};color:${huC}">HUMANO</span>
+  </span>`;
+}
+function headHTML(c){
+  if(!c)return '';
+  return `<div class="cav" style="background:${avColor(c.nome||c.phone)}">${initials(c.nome||c.phone)}</div>
+  <div><b>${c.nome||c.phone}</b><small style="display:block">${c.phone||''}</small></div>
+  <div class="ha">${chatAiBadges(c)}
+    ${c.lead_id?`<button class="ibtn" onclick="abrirPromptLead(${c.lead_id},'${c.phone}')" title="Enviar instrução ao agente"><i class="ti ti-terminal-2"></i> Instruir</button>`:''}
+    <button class="finish-btn" onclick="finishConv(${c.id})"><i class="ti ti-circle-check"></i> Finalizar</button></div>`;
+}
+function renderChatHead(c){const el=document.getElementById('cmHead');if(el){el.innerHTML=headHTML(c);el.style.display=c?'':'none'}}
+function dataBr(d){return d?String(d).slice(0,10).split('-').reverse().join('/'):'—'}
+function fichaHTML(c){
+  if(!c)return '';
+  const st=COLS.find(x=>x.id===c.stage);
+  const tags=(c.tags||[]).filter(Boolean);
+  const extra=c.extra||{};
+  const resumo=(S.resumoConvId===c.id&&S.resumoHTML)?S.resumoHTML:'<span style="color:var(--txt-3);font-size:11.5px">Analisando conversa…</span>';
+  return `<div class="ci-av" style="background:${avColor(c.nome||c.phone)}">${initials(c.nome||c.phone)}</div>
+  <b style="font-size:16px;color:#fff">${c.nome||'Lead'}</b>
+  <div style="font-size:12px;color:var(--txt-3);margin-top:2px">${c.phone||''}</div>
+  <div style="margin-top:10px">${chatAiBadges(c)}</div>
+  ${extra.escalado_motivo&&!c.ai_enabled?`<div style="margin-top:10px;padding:8px 10px;background:rgba(251,146,60,.12);border:1px solid rgba(251,146,60,.4);border-radius:8px;font-size:11px;color:#fb923c;text-align:left"><b style="display:block;font-size:9.5px;letter-spacing:.05em;margin-bottom:3px">ESCALADO PARA HUMANO</b>${escHtml(extra.escalado_motivo)}</div>`:''}
+  <div class="info-blk"><div class="il2">Etapa do funil</div>${st?`<span style="font-size:10.5px;font-weight:700;padding:2px 10px;border-radius:5px;background:${st.cor}22;border:1px solid ${st.cor}55;color:${st.cor}">${st.nome}</span>`:'—'}</div>
+  <div class="info-blk" style="display:flex;gap:10px">
+    <div style="flex:1"><div class="il2">Check-in</div><b style="font-size:12.5px;color:#fff">${dataBr(c.checkin)}</b></div>
+    <div style="flex:1"><div class="il2">Check-out</div><b style="font-size:12.5px;color:#fff">${dataBr(c.checkout)}</b></div>
+  </div>
+  <div class="info-blk" style="display:flex;gap:10px">
+    <div style="flex:1"><div class="il2">Hóspedes</div><b style="font-size:12.5px;color:#fff">${c.guests||'—'}</b></div>
+    <div style="flex:1"><div class="il2">Valor estimado</div><b style="font-size:12.5px;color:var(--green)">${c.valor_cotado?brl(c.valor_cotado):'—'}</b></div>
+  </div>
+  <div class="info-blk"><div class="il2">Tags</div>${tags.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${tags.map(t=>`<span class="tag gray" style="font-size:9.5px">${escHtml(t)}</span>`).join('')}</div>`:'<span style="color:var(--txt-3);font-size:12px">—</span>'}</div>
+  <div class="info-blk"><div class="il2" style="display:flex;align-items:center;justify-content:space-between">Resumo do agente
+    <span onclick="refreshResumo()" title="Atualizar resumo" style="cursor:pointer;color:var(--blue);font-size:11px;display:inline-flex;align-items:center;gap:3px"><i class="ti ti-refresh"></i> atualizar</span></div>
+    <div id="resumoBlk" style="margin-top:6px">${resumo}</div>
+  </div>`;
+}
+function renderFicha(c){const el=document.getElementById('chatInfo');if(el)el.innerHTML=fichaHTML(c)}
+function fichaSig(c){return [c.nome,c.stage,c.ai_enabled,c.checkin,c.checkout,c.guests,c.valor_cotado,(c.tags||[]).join(','),JSON.stringify(c.extra||{})].join('|')}
+async function toggleAIChat(leadId){
+  const next=!(S.convs.find(x=>x.lead_id===leadId)||{}).ai_enabled;
+  try{await PATCH(`/api/v1/leads/${leadId}/ai`,{ai_enabled:next})}catch(e){toast(e.message,false);return}
+  S.convs.forEach(c=>{if(c.lead_id===leadId)c.ai_enabled=next});
+  toast(next?'IA reativada':'Atendimento humano ativado');
+  const ac=S.convs.find(c=>c.id===S.activeConv);
+  renderChatHead(ac);renderFicha(ac);refreshConvList();
+}
+/* ---- resumo do agente (Haiku, cacheado no servidor) ---- */
+function resumoHTML(r){
+  if(!r||!r.ok)return `<span style="color:var(--txt-3);font-size:11.5px">${r&&r.erro?escHtml(r.erro):'Sem resumo ainda'}</span>`;
+  const cor=r.conversao==='alta'?'var(--green)':r.conversao==='baixa'?'var(--red)':'var(--amber)';
+  const lbl=r.conversao==='alta'?'Alta':r.conversao==='baixa'?'Baixa':'Média';
+  return `<div style="text-align:left;font-size:11.5px;color:var(--txt-2);line-height:1.65;white-space:pre-line">${escHtml(r.resumo||'')}</div>
+  <div style="margin-top:9px;display:flex;align-items:center;gap:7px;justify-content:flex-start">
+    <span style="font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--txt-3)">CHANCE DE CONVERSÃO</span>
+    <b style="color:${cor};font-size:12.5px">${lbl}${r.conversao_pct?` (${r.conversao_pct}%)`:''}</b>
+  </div>`;
+}
+async function loadResumo(id,force=false){
+  const blk=document.getElementById('resumoBlk');
+  if(blk)blk.innerHTML='<span style="color:var(--txt-3);font-size:11.5px">Analisando conversa…</span>';
+  const r=await POST(`/api/v1/conversations/${id}/resumo`,force?{force:true}:{}).catch(()=>null);
+  if(S.activeConv!==id)return;
+  S.resumoConvId=id;S.resumoHTML=resumoHTML(r);
+  const b2=document.getElementById('resumoBlk');if(b2)b2.innerHTML=S.resumoHTML;
+}
+function refreshResumo(){if(S.activeConv)loadResumo(S.activeConv,true)}
+/* ---- mensagens ---- */
+function msgsBodyHTML(msgs){
+  if(!msgs||!msgs.length)return '<div style="color:var(--txt-3);font-size:12.5px;text-align:center;padding:30px">Sem mensagens ainda</div>';
+  let h='',lastDay='';
+  for(const m of msgs){
+    if(!m.content||!String(m.content).trim()||m.content==='[ferramentas]')continue;
+    const d=new Date(m.created_at);
+    const day=d.toLocaleDateString('pt-BR');
+    if(day!==lastDay){lastDay=day;h+=`<div class="day-sep">${dayLabel(d)}</div>`}
+    h+=msgHTML(m);
   }
-  if(!S.activeConv)return;
-  let msgs;
-  try{msgs=await GET(`/api/v1/conversations/${S.activeConv}/messages`)}catch(e){return}
-  const ms=msgSig(msgs);
-  if(ms===S._msgSig)return;
-  S._msgSig=ms;S.msgs=msgs;
-  const b=document.getElementById('cmBody');
-  if(!b)return;
-  const nearBottom=b.scrollHeight-b.scrollTop-b.clientHeight<140;
-  b.innerHTML=msgsBodyHTML(msgs);
-  if(nearBottom)b.scrollTop=b.scrollHeight;
+  return h||'<div style="color:var(--txt-3);font-size:12.5px;text-align:center;padding:30px">Sem mensagens ainda</div>';
+}
+function dayLabel(d){
+  const hj=new Date().toLocaleDateString('pt-BR');
+  const ot=new Date(Date.now()-864e5).toLocaleDateString('pt-BR');
+  const ds=d.toLocaleDateString('pt-BR');
+  return ds===hj?'Hoje':ds===ot?'Ontem':ds;
 }
 function msgHTML(m){
-  if(m.sender==='ia'||m.sender==='bot')return `<div class="msg bot"><div class="bm"><span class="rb"><i class="ti ti-robot"></i></span> Agente IA</div>${m.content||''}<small>${new Date(m.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</small></div>`;
-  if(m.sender==='humano')return `<div class="msg out">${m.content||''}<small>${new Date(m.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</small></div>`;
-  return `<div class="msg in">${m.content||''}<small>${new Date(m.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</small></div>`;
+  const hora=new Date(m.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  if(m.sender==='ia'||m.sender==='bot')return `<div class="msg bot"><div class="bm"><span class="rb"><i class="ti ti-robot"></i></span> Agente IA</div>${m.content||''}<small>${hora}</small></div>`;
+  if(m.sender==='humano')return `<div class="msg out"><div class="bm" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;color:var(--green);margin-bottom:5px"><i class="ti ti-user"></i> Você (humano)</div>${m.content||''}<small>${hora}</small></div>`;
+  return `<div class="msg in">${m.content||''}<small>${hora}</small></div>`;
 }
-async function openConv(id){S.activeConv=id;await vChat()}
-async function finishConv(id){await POST(`/api/v1/conversations/${id}/finish`).catch(()=>null);toast('Conversa finalizada');await vChat()}
+/* ---- abrir conversa: atualização IMEDIATA do cabeçalho/ficha (sem esperar rede) ---- */
+async function openConv(id){
+  if(S.activeConv===id)return;
+  S.activeConv=id;
+  const c=S.convs.find(x=>x.id===id);
+  renderChatHead(c);renderFicha(c);
+  document.querySelectorAll('#clConvs .cv').forEach(el=>el.classList.toggle('active',+el.dataset.id===id));
+  const foot=document.querySelector('.cm-foot');if(foot)foot.style.display='';
+  const b=document.getElementById('cmBody');if(b)b.innerHTML='<div style="color:var(--txt-3);font-size:12.5px;text-align:center;padding:30px">Carregando…</div>';
+  S._fichaSig=c?fichaSig(c):'';
+  POST(`/api/v1/conversations/${id}/read`,{}).catch(()=>null);
+  if(c)c.unread=0;
+  refreshConvList();
+  loadResumo(id);
+  const msgs=await GET(`/api/v1/conversations/${id}/messages`).catch(()=>[]);
+  if(S.activeConv!==id)return;
+  S.msgs=msgs;S._msgSig=msgSig(msgs);
+  const b2=document.getElementById('cmBody');
+  if(b2){b2.innerHTML=msgsBodyHTML(msgs);b2.scrollTop=b2.scrollHeight;}
+}
+async function finishConv(id){
+  if(!confirm('Finalizar esta conversa?\n\nA próxima mensagem do lead abrirá uma conversa nova e o agente recomeçará sem este histórico.'))return;
+  await POST(`/api/v1/conversations/${id}/finish`).catch(()=>null);
+  toast('Conversa finalizada');
+  await vChat();
+}
 async function toggleRobotGeral(el){
   const novo=el.classList.contains('off');
   el.classList.toggle('off');
@@ -924,12 +1043,52 @@ async function toggleRobotGeral(el){
     await vChat();
   }catch(e){toast('Erro ao alterar',false);el.classList.toggle('off')}
 }
-async function sendMsg(leadId,convId){
+async function sendMsg(){
+  const c=S.convs.find(x=>x.id===S.activeConv);if(!c)return;
   const i=document.getElementById('cmInput');if(!i||!i.value.trim())return;
   const text=i.value.trim();i.value='';
-  await POST(`/api/v1/conversations/${convId}/send`,{text}).catch(e=>toast(e.message,false));
+  await POST(`/api/v1/conversations/${c.id}/send`,{text}).catch(e=>toast(e.message,false));
   toast('Mensagem enviada');
-  setTimeout(async()=>{await vChat()},1000);
+  setTimeout(async()=>{
+    const msgs=await GET(`/api/v1/conversations/${c.id}/messages`).catch(()=>null);
+    if(!msgs||S.activeConv!==c.id)return;
+    S.msgs=msgs;S._msgSig=msgSig(msgs);
+    const b=document.getElementById('cmBody');
+    if(b){b.innerHTML=msgsBodyHTML(msgs);b.scrollTop=b.scrollHeight;}
+  },800);
+}
+function convSig(convs){return (convs||[]).map(c=>`${c.id}:${c.last_at}:${c.last_message}:${c.ai_enabled}:${c.stage}:${c.unread}`).join('|')}
+function msgSig(msgs){if(!msgs||!msgs.length)return '0';const l=msgs[msgs.length-1];return `${msgs.length}:${l.created_at}:${l.content}`}
+function startChatPoll(){stopChatPoll();S.chatPoll=setInterval(pollChat,4000)}
+function stopChatPoll(){if(S.chatPoll){clearInterval(S.chatPoll);S.chatPoll=null}}
+/* Atualização automática em tempo real — independe do estado da IA.
+   Atualiza lista, mensagens, cabeçalho e ficha sem recriar o input. */
+async function pollChat(){
+  if(S.view!=='chat'){stopChatPoll();return}
+  if(document.hidden)return;
+  let convs;
+  try{convs=await GET('/api/v1/conversations')}catch(e){return}
+  S.convs=convs;
+  const cs=convSig(convs);
+  if(cs!==S._convSig){S._convSig=cs;refreshConvList()}
+  if(!S.activeConv)return;
+  const ac=convs.find(c=>c.id===S.activeConv);
+  if(ac){
+    const fs=fichaSig(ac);
+    if(fs!==S._fichaSig){S._fichaSig=fs;renderChatHead(ac);renderFicha(ac)}
+  }
+  let msgs;
+  try{msgs=await GET(`/api/v1/conversations/${S.activeConv}/messages`)}catch(e){return}
+  const ms=msgSig(msgs);
+  if(ms===S._msgSig)return;
+  S._msgSig=ms;S.msgs=msgs;
+  const b=document.getElementById('cmBody');
+  if(!b)return;
+  const nearBottom=b.scrollHeight-b.scrollTop-b.clientHeight<140;
+  b.innerHTML=msgsBodyHTML(msgs);
+  if(nearBottom)b.scrollTop=b.scrollHeight;
+  // chegou mensagem nova na conversa aberta: marca como lida
+  POST(`/api/v1/conversations/${S.activeConv}/read`,{}).catch(()=>null);
 }
 
 /* ============================================================

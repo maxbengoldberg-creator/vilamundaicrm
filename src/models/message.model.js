@@ -20,6 +20,29 @@ export async function listByConversation(conversation_id) {
   return rows;
 }
 
+// Mensagens para o PAINEL do operador: sem os registros internos do agente
+// (placeholders "[ferramentas]" e textos vazios de rodadas de tool_use).
+export async function listForPanel(conversation_id) {
+  const { rows } = await query(
+    `SELECT role, content, sender, created_at FROM messages
+      WHERE conversation_id = $1
+        AND content IS NOT NULL AND btrim(content) <> '' AND content <> '[ferramentas]'
+      ORDER BY created_at ASC, id ASC`,
+    [conversation_id]
+  );
+  return rows;
+}
+
+export async function countByConversation(conversation_id) {
+  const { rows } = await query(
+    `SELECT COUNT(*)::int AS n FROM messages
+      WHERE conversation_id = $1
+        AND content IS NOT NULL AND btrim(content) <> '' AND content <> '[ferramentas]'`,
+    [conversation_id]
+  );
+  return rows[0]?.n || 0;
+}
+
 // Já existe mensagem com este conteúdo nesta conversa nos últimos `segundos`?
 // Usado para deduplicar ecos de mensagens fromMe (IA/CRM já gravaram).
 export async function existsRecentByContent(conversation_id, content, segundos = 120) {

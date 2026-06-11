@@ -172,39 +172,26 @@ function toClaudeMessages(rows) {
 
 export async function handleIncoming({ phone, text, pushName, operador = false }) {
   const robotOn = await Setting.get('robot_enabled', true);
-  // Ordem do operador roda mesmo com o robô desligado ou a IA pausada no lead.
-  if (!operador && robotOn === false) {
-    // Robô geral desligado: a IA não responde, mas a mensagem do lead ainda
-    // precisa ser gravada para aparecer no painel (atendimento humano).
-    const cli = await Cliente.findByPhone(phone);
-    let leadId = null;
-    if (!cli) {
-      let lead = await Lead.findByPhone(phone);
-      if (!lead) lead = await Lead.create({ phone, nome: pushName || null, origem: 'whatsapp' });
-      leadId = lead.id;
-    }
-    await persistInbound(leadId, phone, text);
-    return { skipped: true, reason: 'robot_desligado_geral' };
-  }
+
+  // CLIENTE (hóspede confirmado): o handler persiste primeiro e decide depois.
   const cliente = await Cliente.findByPhone(phone);
   if (cliente) {
-    return handleClienteMessage({ cliente, phone, text });
+    return handleClienteMessage({ cliente, phone, text, robotOn });
   }
 
+  // ===== INVARIANTE: registrar SEMPRE, antes de qualquer decisão. =====
+  // Receber e registrar o lead é obrigação do CRM; responder é decisão da IA.
+  // Nenhum estado (robô geral, IA do lead) pode impedir o lead de aparecer
+  // no funil (qualificação) e em Atendimentos.
   let lead = await Lead.findByPhone(phone);
   if (!lead) lead = await Lead.create({ phone, nome: pushName || null, origem: 'whatsapp' });
-
-  if (!operador && !lead.ai_enabled) {
-    await persistInbound(lead.id, phone, text);
-    return { skipped: true, reason: 'ia_pausada' };
-  }
 
   let conv = await Conversation.findOpenByPhone(phone);
   const isFirstMessage = !conv;
   if (!conv) conv = await Conversation.create({ lead_id: lead.id, phone });
 
   // Anúncio Click-to-WhatsApp: detecta pelo texto automático do formulário.
-  // Marca a origem no lead (pra refletir no CRM) já que não passa pelo webhook do Meta.
+  // Roda independente do estado do robô (a origem/campanha não pode se perder).
   if (!operador && isFirstMessage && lead.origem !== 'meta_ads' && pareceAnuncio(text)) {
     await Lead.update(lead.id, { origem: 'meta_ads' });
     lead.origem = 'meta_ads';
@@ -216,6 +203,15 @@ export async function handleIncoming({ phone, text, pushName, operador = false }
   if (!operador) {
     await Message.create({ conversation_id: conv.id, role: 'user', content: text, sender: 'lead' });
     await Conversation.touch(conv.id, text);
+  }
+
+  // ===== Só agora a IA decide se responde. =====
+  // Ordem do operador roda mesmo com o robô desligado ou a IA pausada no lead.
+  if (!operador && robotOn === false) {
+    return { skipped: true, reason: 'robot_desligado_geral' };
+  }
+  if (!operador && !lead.ai_enabled) {
+    return { skipped: true, reason: 'ia_pausada' };
   }
 
   // Se já há um processamento em andamento para este lead, a mensagem já está
@@ -359,13 +355,16 @@ export async function handleIncoming({ phone, text, pushName, operador = false }
   }
 }
 
-async function handleClienteMessage({ cliente, phone, text }) {
+async function handleClienteMessage({ cliente, phone, text, robotOn = true }) {
   let conv = await Conversation.findOpenByPhone(phone);
   if (!conv) conv = await Conversation.create({ lead_id: null, phone });
 
   await Message.create({ conversation_id: conv.id, role: 'user', content: text, sender: 'lead' });
   await Conversation.touch(conv.id, text);
 
+  if (robotOn === false) {
+    return { skipped: true, reason: 'robot_desligado_geral' };
+  }
   if (!cliente.ai_enabled) {
     return { skipped: true, reason: 'ia_pausada_cliente' };
   }
@@ -390,13 +389,6 @@ async function handleClienteMessage({ cliente, phone, text }) {
 function textOf(content) {
   if (typeof content === 'string') return content;
   return content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
-}
-
-async function persistInbound(leadId, phone, text) {
-  let conv = await Conversation.findOpenByPhone(phone);
-  if (!conv) conv = await Conversation.create({ lead_id: leadId, phone });
-  await Message.create({ conversation_id: conv.id, role: 'user', content: text, sender: 'lead' });
-  await Conversation.touch(conv.id, text);
 }
 
 // Grava no painel uma mensagem que NÓS enviamos (fromMe): pode ter vindo do app

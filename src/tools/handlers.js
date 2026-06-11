@@ -212,8 +212,10 @@ export const HANDLERS = {
   },
 
   async escalar_humano(input, ctx) {
-    await Lead.update(ctx.lead.id, { ai_enabled: false });
-    // Aqui você poderia notificar a equipe (Slack/e-mail). Stub:
+    // Guarda o motivo no lead para o operador ver na ficha do Atendimentos.
+    const lead = (await Lead.findById(ctx.lead.id)) || ctx.lead;
+    const extra = { ...(lead.extra || {}), escalado_motivo: input.motivo, escalado_at: new Date().toISOString() };
+    await Lead.update(ctx.lead.id, { ai_enabled: false, extra: JSON.stringify(extra) });
     console.log(`[escalonamento] lead ${ctx.lead.id} -> humano. Motivo: ${input.motivo}`);
     return { ok: true, ia_pausada: true, motivo: input.motivo };
   },

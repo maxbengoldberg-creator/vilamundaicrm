@@ -44,6 +44,8 @@ api.get('/conversations', crm.listConversations);
 api.get('/conversations/:id/messages', crm.getConversationMessages);
 api.post('/conversations/:id/send', crm.sendManual);
 api.post('/conversations/:id/finish', crm.finishConversation);
+api.post('/conversations/:id/read', crm.markConversationRead);
+api.post('/conversations/:id/resumo', crm.resumoConversa);
 
 // Automações — prompts por etapa (deve vir antes de /automations/:id)
 api.get('/automations/stages', stages.listStages);

@@ -4,7 +4,57 @@ import * as Message from '../models/message.model.js';
 import * as Automation from '../models/automation.model.js';
 import { zapi } from '../services/zapi.service.js';
 import { hospedin } from '../services/hospedin.service.js';
+import { anthropic } from '../services/claude.service.js';
 import { query } from '../config/db.js';
+
+/* ---- RESUMO DA CONVERSA (visão do robô + chance de conversão) ----
+   Gera com Haiku e guarda em cache: só chama a IA se houver mensagens
+   novas desde o último resumo (ou se force=true). */
+export async function resumoConversa(req, res) {
+  try {
+    const convId = req.params.id;
+    const force = !!req.body?.force;
+    const conv = await Conversation.findById(convId);
+    if (!conv) return res.status(404).json({ ok: false, erro: 'conversa não encontrada' });
+
+    const totalMsgs = await Message.countByConversation(convId);
+    if (!force && conv.resumo && Number(conv.resumo_msgs) === totalMsgs) {
+      return res.json({ ok: true, cached: true, resumo: conv.resumo, conversao: conv.conversao, conversao_pct: conv.conversao_pct, resumo_at: conv.resumo_at });
+    }
+    if (totalMsgs < 2) return res.json({ ok: false, erro: 'conversa muito curta para resumir' });
+
+    const msgs = await Message.listForPanel(convId);
+    const transcript = msgs.slice(-40)
+      .map(m => `${m.sender === 'lead' ? 'LEAD' : m.sender === 'humano' ? 'ATENDENTE' : 'AGENTE IA'}: ${m.content}`)
+      .join('\n');
+    const ficha = `Lead: ${conv.nome || 'sem nome'} | etapa do funil: ${conv.stage || '-'} | checkin: ${conv.checkin || '-'} | checkout: ${conv.checkout || '-'} | hóspedes: ${conv.guests || '-'} | valor cotado: ${conv.valor_cotado || '-'} | tags: ${(conv.tags || []).join(', ') || '-'}`;
+
+    const resp = await anthropic.messages.create({
+      model: 'claude-haiku-4-5',
+      max_tokens: 400,
+      system: `Você é analista de vendas de uma hospedagem (Vila Mundaí, Porto Seguro). Analise a conversa entre o lead e o atendimento e responda APENAS com JSON válido, sem markdown, no formato:
+{"resumo":["bullet curto 1","bullet curto 2","bullet curto 3"],"proximo_passo":"ação objetiva sugerida","conversao":"alta|media|baixa","pct":55}
+Regras: 3 a 5 bullets, frases curtas e diretas (o que o lead quer, datas/pessoas, o que já foi feito, objeções/pendências). "pct" é sua estimativa de chance de fechar (0-100) com base no engajamento, etapa e sinais da conversa.`,
+      messages: [{ role: 'user', content: ficha + '\n\nCONVERSA:\n' + transcript }],
+    });
+
+    const rawTxt = resp.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
+    let j;
+    try { j = JSON.parse(rawTxt.replace(/^```json\s*|```\s*$/g, '').trim()); }
+    catch { return res.status(502).json({ ok: false, erro: 'IA não retornou JSON válido' }); }
+
+    const bullets = Array.isArray(j.resumo) ? j.resumo : [];
+    const resumoTxt = bullets.map(b => `• ${b}`).join('\n') + (j.proximo_passo ? `\n→ Próximo passo: ${j.proximo_passo}` : '');
+    const conversao = ['alta', 'media', 'baixa'].includes(String(j.conversao).toLowerCase()) ? String(j.conversao).toLowerCase() : 'media';
+    const pct = Math.max(0, Math.min(100, parseInt(j.pct, 10) || 0));
+
+    await Conversation.saveResumo(convId, { resumo: resumoTxt, conversao, conversao_pct: pct, resumo_msgs: totalMsgs });
+    res.json({ ok: true, cached: false, resumo: resumoTxt, conversao, conversao_pct: pct, resumo_at: new Date().toISOString() });
+  } catch (e) {
+    console.error('[resumo] erro:', e.message);
+    res.status(500).json({ ok: false, erro: e.message });
+  }
+}
 
 /* ---- CANCELAR RESERVA NO PMS ---- */
 export async function cancelarReservaPms(req, res) {
@@ -57,7 +107,10 @@ export async function listConversations(req, res, next) {
   try { res.json(await Conversation.list()); } catch (e) { next(e); }
 }
 export async function getConversationMessages(req, res, next) {
-  try { res.json(await Message.listByConversation(req.params.id)); } catch (e) { next(e); }
+  try { res.json(await Message.listForPanel(req.params.id)); } catch (e) { next(e); }
+}
+export async function markConversationRead(req, res, next) {
+  try { await Conversation.markRead(req.params.id); res.json({ ok: true }); } catch (e) { next(e); }
 }
 export async function finishConversation(req, res, next) {
   try { await Conversation.finish(req.params.id); res.json({ ok: true }); } catch (e) { next(e); }

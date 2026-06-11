@@ -47,6 +47,13 @@ app.listen(env.port, () => {
       created_at TIMESTAMPTZ DEFAULT now()
     )`),
     query(`ALTER TABLE fotos ADD COLUMN IF NOT EXISTS ordem INTEGER`),
+    // Painel de Atendimentos: não-lidas + resumo da conversa (visão do robô)
+    query(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS last_read_at TIMESTAMPTZ`),
+    query(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS resumo TEXT`),
+    query(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS resumo_at TIMESTAMPTZ`),
+    query(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS resumo_msgs INTEGER`),
+    query(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS conversao TEXT`),
+    query(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS conversao_pct INTEGER`),
   ]).catch(err => console.error('[server] migrate falhou:', err.message));
 
   // Job de morno: roda imediatamente e depois a cada 1 hora

@@ -8,7 +8,7 @@ export const TOOLS = [
   {
     name: 'consultar_disponibilidade',
     description:
-      'Consulta no PMS Hospedin quais acomodações estão disponíveis para um período e número de hóspedes. Retorna, para cada acomodação, a diária JÁ ajustada pelo número de hóspedes e o total_estadia já calculado (diária × noites) — use esses valores exatamente como vieram, sem calcular nem descontar nada por conta própria. Se o número de hóspedes ou as datas mudarem na conversa, consulte de novo. Use sempre antes de prometer datas ou cotar.',
+      'Consulta no PMS Hospedin quais acomodações estão disponíveis para um período e número de hóspedes. Retorna diaria e total_estadia já calculados pelo PMS com a tarifa correta do período e o desconto por ocupação — use exatamente esses valores ao apresentar o preço ao lead, sem calcular nem ajustar nada. Se datas ou número de hóspedes mudarem, consulte de novo.',
     input_schema: {
       type: 'object',
       properties: {
@@ -109,7 +109,7 @@ export const TOOLS = [
   {
     name: 'criar_reserva',
     description:
-      'Cria a reserva no PMS Hospedin com os dados confirmados do lead. Só use após o lead confirmar que quer reservar. Use o tipo de apto e a diária exatamente como retornados pela consulta de disponibilidade.',
+      'Cria a pré-reserva no PMS Hospedin. O PMS calcula o valor automaticamente com base nas datas e no número de hóspedes — não é necessário informar a diária. Use apenas após o lead confirmar que quer reservar.',
     input_schema: {
       type: 'object',
       properties: {
@@ -121,9 +121,8 @@ export const TOOLS = [
           enum: ['1 Quarto - Térreo', '1 Quarto - Superior', '2 Quartos - Térreo', '2 Quartos - Superior'],
           description: 'Tipo de apartamento, exatamente como retornado pela consulta de disponibilidade (campo acomodacao).',
         },
-        valor: { type: 'number', description: 'Valor da DIÁRIA em reais (não o total da estadia), exatamente como retornado pela consulta de disponibilidade desta conversa — já ajustado pelo número de hóspedes. É esse valor que será lançado no PMS.' },
       },
-      required: ['checkin', 'checkout', 'guests', 'tipo_apto', 'valor'],
+      required: ['checkin', 'checkout', 'guests', 'tipo_apto'],
     },
   },
   {

@@ -82,18 +82,14 @@ export const hospedin = {
     return data;
   },
 
-  async criarReserva({ nome, checkin, checkout, guests, place_type_id, place_id, diaria }) {
+  async criarReserva({ nome, checkin, checkout, guests, place_type_id, place_id }) {
     try {
-      if (!diaria || Number(diaria) <= 0) {
-        return { ok: false, erro: 'Valor da diária ausente ou inválido. Use a diária retornada pela consulta de disponibilidade.' };
-      }
       const h = await authHeaders();
       const guest = await hospedin.criarGuest(nome || 'Hóspede Vila Mundaí');
       const noites = Math.round((new Date(checkout) - new Date(checkin)) / (1000*60*60*24));
-      const daily_cents = Math.round(Number(diaria) * 100);
-      const total_daily_cents = daily_cents * noites;
-      const totalReais = (total_daily_cents / 100).toFixed(2);
-      const nota = `Reserva criada pelo agente IA. Diária acordada: R$ ${Number(diaria).toFixed(2)} x ${noites} noites = R$ ${totalReais} (${guests} hóspedes).`;
+      // Não enviamos daily_cents — o PMS precifica sozinho usando a tarifa base
+      // da faixa de datas + os descontos por ocupação configurados nele.
+      const nota = `Reserva criada pelo agente IA: ${guests} hóspedes, ${noites} noites.`;
       const pt = PLACE_TYPES.find(p => p.id === place_type_id) || PLACE_TYPES[0];
 
       // A disponibilidade é verificada por TIPO, mas a reserva exige uma unidade
@@ -113,8 +109,6 @@ export const hospedin = {
               status: 'pre_reservation',
               check_in: checkin,
               check_out: checkout,
-              daily_cents,
-              total_daily_cents,
               adults: Number(guests) || 2,
               children: 0,
               exempt: 0,
@@ -124,38 +118,18 @@ export const hospedin = {
             },
             { headers: h }
           );
-          // O POST ignora daily_cents e precifica pelo calendário do PMS.
-          // Corrige via PATCH e relê para confirmar o valor que ficou.
-          let final = data;
-          if ((data.daily_cents || 0) !== daily_cents) {
-            try {
-              await axios.patch(
-                `${BASE}/${ACCOUNT_ID}/reservations/${data.id}`,
-                { daily_cents, total_daily_cents },
-                { headers: h }
-              );
-              final = await axios.get(`${BASE}/${ACCOUNT_ID}/reservations/${data.id}`, { headers: h }).then(x => x.data);
-            } catch (e) {
-              console.warn('[hospedin] PATCH do valor falhou:', JSON.stringify(e.response?.data || e.message));
-            }
-          }
-          // O PMS zera daily_cents mas registra o valor no total_amount —
-          // o que vale financeiramente é o total, então é ele que conferimos.
-          const totalPms = (final.total_amount || 0) / 100;
-          const totalEsperado = total_daily_cents / 100;
-          const valorOk = Math.abs(totalPms - totalEsperado) < 0.01;
-          console.log(`[hospedin] reserva ${data.id} criada. diaria=R$${diaria} | total esperado=R$${totalEsperado} | total_pms=R$${totalPms} | ok=${valorOk}`);
+          const totalPms = (data.total_amount || 0) / 100;
+          const diaria_media = noites ? Math.round((totalPms / noites) * 100) / 100 : null;
+          console.log(`[hospedin] reserva ${data.id} criada. total_pms=R$${totalPms} guests=${guests}`);
           return {
             ok: true,
             pms_id: data.id,
             codigo: data.searchable_code,
             status: data.status,
             place_id: pid,
-            valor_total_pms: totalPms,
-            aviso: !valorOk
-              ? `ATENÇÃO: o valor total no PMS ficou R$ ${totalPms.toFixed(2)} em vez de R$ ${totalEsperado.toFixed(2)}. O valor acordado está registrado na nota da reserva para ajuste manual.`
-              : undefined,
-            raw: final,
+            valor_total: totalPms,
+            diaria_media,
+            raw: data,
           };
         } catch (err) {
           ultimoErro = err.response?.data || err.message;
@@ -197,7 +171,22 @@ function extrairTelefone(...textos) {
 
 // Cria pré-reserva SEM enviar valor para o PMS calcular sozinho
 // (tarifa base da faixa + desconto por ocupação configurado no PMS).
-hospedin.cotarNativo = async function ({ checkin, checkout, guests, place_type_id, nome }) {
+// Cancela uma reserva no PMS (usada após cotação temporária).
+hospedin.cancelarReserva = async function (id) {
+  try {
+    const h = await authHeaders();
+    await axios.patch(`${BASE}/${ACCOUNT_ID}/reservations/${id}`, { status: 'canceled' }, { headers: h });
+    return { ok: true };
+  } catch (err) {
+    console.warn(`[hospedin] cancelarReserva ${id}:`, err.response?.data || err.message);
+    return { ok: false };
+  }
+};
+
+// Cria pré-reserva SEM enviar valor para o PMS precificar sozinho
+// (tarifa base da faixa + desconto por ocupação configurado no PMS).
+// Se cancelar=true, cancela a reserva logo após ler o preço (usado na cotação).
+hospedin.cotarNativo = async function ({ checkin, checkout, guests, place_type_id, nome, cancelar = false }) {
   const h = await authHeaders();
   const guest = await hospedin.criarGuest(nome || 'Cotação CRM');
   const pt = PLACE_TYPES.find(p => p.id === Number(place_type_id));
@@ -219,14 +208,17 @@ hospedin.cotarNativo = async function ({ checkin, checkout, guests, place_type_i
           exempt: 0,
           guest_id: guest.id,
           has_breakfast: false,
-          note: `Cotação CRM: ${guests} hóspedes, preço calculado pelo PMS.`,
+          note: cancelar
+            ? `Cotação temporária CRM: ${guests} hóspedes — será cancelada.`
+            : `Reserva criada pelo agente IA: ${guests} hóspedes.`,
         },
         { headers: h }
       );
       const noites = Math.round((new Date(checkout) - new Date(checkin)) / 86400000);
       const total = (data.total_amount || 0) / 100;
       const diaria_media = noites ? Math.round((total / noites) * 100) / 100 : null;
-      console.log(`[hospedin] cotarNativo: reserva ${data.id} criada. total_pms=R$${total} noites=${noites} guests=${guests}`);
+      console.log(`[hospedin] cotarNativo: reserva ${data.id} total=R$${total} guests=${guests} cancelar=${cancelar}`);
+      if (cancelar) await hospedin.cancelarReserva(data.id);
       return { ok: true, pms_id: data.id, codigo: data.searchable_code, acomodacao: pt.nome, place_id: pid, noites, total, diaria_media };
     } catch (err) {
       ultimoErro = err.response?.data || err.message;

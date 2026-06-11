@@ -18,30 +18,8 @@ const PLACE_TYPE_IDS = {
   '2 Quartos - Superior': 178729,
 };
 
-// Desconto na diária por número de hóspedes, por tipo de apto.
-// O preço do PMS é o cheio (ocupação máxima); aqui ajustamos para menos pessoas.
-// A diária retornada ao agente já sai corrigida — é ela que vai ao lead e ao PMS.
-const DESCONTO_POR_HOSPEDES = {
-  178135: { 4: 40, 3: 70, 2: 120 }, // 1 Quarto - Térreo (cheio = 5 pessoas)
-};
-
-function aplicarDescontoHospedes(disponiveis, guests) {
-  const g = Number(guests);
-  if (!g) return disponiveis;
-  return disponiveis.map(d => {
-    const tabela = DESCONTO_POR_HOSPEDES[d.place_type_id];
-    if (!tabela) return d;
-    // 1 hóspede paga como 2; acima do teto da tabela paga o preço cheio.
-    const desconto = tabela[Math.max(g, 2)] || 0;
-    if (!desconto) return d;
-    const diaria = Math.max(d.diaria - desconto, 0);
-    return {
-      ...d,
-      diaria,
-      diaria_formatada: diaria.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-    };
-  });
-}
+// Preços por ocupação são configurados diretamente no PMS e variam por faixa
+// de datas. Não usamos tabela hardcoded — o preço real vem de cotarNativo.
 
 function nextStage(current) {
   if (current === 'morno') return MORNO_NEXT;
@@ -60,17 +38,37 @@ function nextStage(current) {
 export const HANDLERS = {
   async consultar_disponibilidade(input) {
     const r = await hospedin.disponibilidade(input);
-    if (r.ok && Array.isArray(r.disponiveis)) {
-      r.disponiveis = aplicarDescontoHospedes(r.disponiveis, input.guests).map(d => {
-        const total = Math.round(d.diaria * r.noites * 100) / 100;
-        return {
-          ...d,
-          noites: r.noites,
-          total_estadia: total,
-          total_formatado: total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-        };
-      });
-    }
+    if (!r.ok || !Array.isArray(r.disponiveis) || r.disponiveis.length === 0) return r;
+    // Busca o preço real de cada apto disponível em paralelo, criando pré-reservas
+    // temporárias no PMS (canceladas imediatamente). Isso garante que o preço
+    // já inclui a tarifa da faixa de datas + o desconto por ocupação configurado
+    // pelo anfitrião no PMS — sem nenhuma tabela hardcoded no nosso código.
+    const cotacoes = await Promise.all(
+      r.disponiveis.map(d =>
+        hospedin.cotarNativo({
+          checkin: input.checkin,
+          checkout: input.checkout,
+          guests: input.guests,
+          place_type_id: d.place_type_id,
+          cancelar: true,
+        }).catch(e => {
+          console.error('[cotarNativo] falhou para', d.acomodacao, e.message);
+          return { ok: false };
+        })
+      )
+    );
+    r.disponiveis = r.disponiveis.map((d, i) => {
+      const c = cotacoes[i];
+      if (!c.ok) return { ...d, noites: r.noites }; // fallback sem preço
+      return {
+        ...d,
+        noites: r.noites,
+        diaria: c.diaria_media,
+        diaria_formatada: c.diaria_media.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+        total_estadia: c.total,
+        total_formatado: c.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+      };
+    });
     return r;
   },
 
@@ -160,15 +158,17 @@ export const HANDLERS = {
         erro: `Bloqueado: a ficha do lead diz que ele escolheu "${lead.acomodacao}", mas você pediu "${tipo_apto}". Crie a reserva na acomodação escolhida pelo lead, ou atualize a ficha com extrair_dados_lead se ele mudou de escolha.`,
       };
     }
+    // Não passamos diaria — o PMS precifica sozinho com a tarifa da faixa
+    // de datas e o desconto por ocupação configurado pelo anfitrião.
     const r = await hospedin.criarReserva({
       nome: lead.nome,
       checkin: input.checkin,
       checkout: input.checkout,
       guests: input.guests,
       place_type_id,
-      diaria: input.valor,
     });
     if (r.ok) {
+      await Lead.update(ctx.lead.id, { valor_cotado: r.valor_total });
       await Reservation.create({
         lead_id: ctx.lead.id,
         pms_id: r.pms_id,
@@ -176,7 +176,7 @@ export const HANDLERS = {
         checkout: input.checkout,
         guests: input.guests,
         acomodacao: tipo_apto,
-        valor: input.valor,
+        valor: r.valor_total,
         status: r.status,
         payload: r.raw,
       });

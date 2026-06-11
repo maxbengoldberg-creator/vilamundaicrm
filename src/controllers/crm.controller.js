@@ -3,7 +3,22 @@ import * as Conversation from '../models/conversation.model.js';
 import * as Message from '../models/message.model.js';
 import * as Automation from '../models/automation.model.js';
 import { zapi } from '../services/zapi.service.js';
+import { hospedin } from '../services/hospedin.service.js';
 import { query } from '../config/db.js';
+
+/* ---- COTAÇÃO PMS (preço nativo com desconto por ocupação) ---- */
+export async function cotacaoPms(req, res) {
+  try {
+    const { checkin, checkout, guests, place_type_id } = req.body;
+    if (!checkin || !checkout || !guests || !place_type_id) {
+      return res.status(400).json({ error: 'checkin, checkout, guests e place_type_id são obrigatórios' });
+    }
+    const r = await hospedin.cotarNativo({ checkin, checkout, guests, place_type_id });
+    res.json(r);
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data || e.message });
+  }
+}
 
 /* ---- LEADS ---- */
 export async function listLeads(req, res, next) {

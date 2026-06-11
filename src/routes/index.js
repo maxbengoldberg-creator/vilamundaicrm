@@ -22,6 +22,9 @@ api.use(requireApiKey);
 api.post('/agent/run', runAgent);
 api.post('/automations/generate', generateAutomation);
 
+// Cotação nativa no PMS (cria pré-reserva sem valor; o PMS precifica)
+api.post('/pms/cotacao', crm.cotacaoPms);
+
 // Leads
 api.get('/leads', crm.listLeads);
 api.post('/leads', crm.createLead);

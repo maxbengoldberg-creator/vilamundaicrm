@@ -195,6 +195,48 @@ function extrairTelefone(...textos) {
   return null;
 }
 
+// Cria pré-reserva SEM enviar valor para o PMS calcular sozinho
+// (tarifa base da faixa + desconto por ocupação configurado no PMS).
+hospedin.cotarNativo = async function ({ checkin, checkout, guests, place_type_id, nome }) {
+  const h = await authHeaders();
+  const guest = await hospedin.criarGuest(nome || 'Cotação CRM');
+  const pt = PLACE_TYPES.find(p => p.id === Number(place_type_id));
+  if (!pt) return { ok: false, erro: `place_type_id inválido: ${place_type_id}` };
+  let ultimoErro = null;
+  for (const pid of pt.places) {
+    try {
+      const { data } = await axios.post(
+        `${BASE}/${ACCOUNT_ID}/reservations`,
+        {
+          sale_channel_id: SALE_CHANNEL_ID,
+          place_type_id: pt.id,
+          place_id: pid,
+          status: 'pre_reservation',
+          check_in: checkin,
+          check_out: checkout,
+          adults: Number(guests) || 2,
+          children: 0,
+          exempt: 0,
+          guest_id: guest.id,
+          has_breakfast: false,
+          note: `Cotação CRM: ${guests} hóspedes, preço calculado pelo PMS.`,
+        },
+        { headers: h }
+      );
+      const noites = Math.round((new Date(checkout) - new Date(checkin)) / 86400000);
+      const total = (data.total_amount || 0) / 100;
+      const diaria_media = noites ? Math.round((total / noites) * 100) / 100 : null;
+      console.log(`[hospedin] cotarNativo: reserva ${data.id} criada. total_pms=R$${total} noites=${noites} guests=${guests}`);
+      return { ok: true, pms_id: data.id, codigo: data.searchable_code, acomodacao: pt.nome, place_id: pid, noites, total, diaria_media };
+    } catch (err) {
+      ultimoErro = err.response?.data || err.message;
+      if (/em uso/i.test(JSON.stringify(ultimoErro))) { continue; }
+      throw err;
+    }
+  }
+  return { ok: false, erro: 'Nenhuma unidade livre no período.', detalhe: ultimoErro };
+};
+
 hospedin.chegadas = async function ({ start_date, end_date }) {
   const h = await authHeaders();
   const encontrados = [];

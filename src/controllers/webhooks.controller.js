@@ -1,4 +1,4 @@
-import { handleIncoming } from '../services/agent.service.js';
+import { handleIncoming, persistOutboundHuman } from '../services/agent.service.js';
 import { query } from '../config/db.js';
 
 // ==========================================================
@@ -15,14 +15,9 @@ export async function whatsappWebhook(req, res) {
   try {
     const body = req.body || {};
 
-    // Ignora mensagens que nós mesmos enviamos.
-    if (body.fromMe) return;
-
     // Telefone do contato (Z-API manda em "phone").
     const phone = body.phone || body.participantPhone;
     if (!phone) return;
-
-    const pushName = body.senderName || body.chatName || null;
 
     // Extrai o texto (Z-API: text.message). Outros tipos podemos tratar depois.
     const text =
@@ -37,6 +32,15 @@ export async function whatsappWebhook(req, res) {
       return;
     }
 
+    // Mensagens que saíram do nosso número (app do celular, IA ou CRM):
+    // grava como atendimento humano para aparecer no painel, sem reprocessar
+    // pela IA. A deduplicação evita duplicar ecos da IA/CRM.
+    if (body.fromMe) {
+      await persistOutboundHuman({ phone, text });
+      return;
+    }
+
+    const pushName = body.senderName || body.chatName || null;
     await handleIncoming({ phone, text, pushName });
   } catch (e) {
     console.error('[webhook] erro ao processar:', e.message);

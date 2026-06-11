@@ -159,6 +159,16 @@ function toClaudeMessages(rows) {
 export async function handleIncoming({ phone, text, pushName }) {
   const robotOn = await Setting.get('robot_enabled', true);
   if (robotOn === false) {
+    // Robô geral desligado: a IA não responde, mas a mensagem do lead ainda
+    // precisa ser gravada para aparecer no painel (atendimento humano).
+    const cli = await Cliente.findByPhone(phone);
+    let leadId = null;
+    if (!cli) {
+      let lead = await Lead.findByPhone(phone);
+      if (!lead) lead = await Lead.create({ phone, nome: pushName || null, origem: 'whatsapp' });
+      leadId = lead.id;
+    }
+    await persistInbound(leadId, phone, text);
     return { skipped: true, reason: 'robot_desligado_geral' };
   }
   const cliente = await Cliente.findByPhone(phone);
@@ -362,4 +372,28 @@ async function persistInbound(leadId, phone, text) {
   if (!conv) conv = await Conversation.create({ lead_id: leadId, phone });
   await Message.create({ conversation_id: conv.id, role: 'user', content: text, sender: 'lead' });
   await Conversation.touch(conv.id, text);
+}
+
+// Grava no painel uma mensagem que NÓS enviamos (fromMe): pode ter vindo do app
+// do celular, da IA ou do envio manual pelo CRM. Para o operador, tudo que sai
+// do nosso número aparece como atendimento humano. Deduplica para não duplicar
+// o que a IA (sender 'ia') ou o envio pelo CRM (sender 'humano') já gravaram.
+export async function persistOutboundHuman({ phone, text }) {
+  let conv = await Conversation.findOpenByPhone(phone);
+  if (!conv) {
+    // Sem conversa aberta: cria vinculada ao lead (ou cliente) se existir.
+    const cli = await Cliente.findByPhone(phone);
+    let leadId = null;
+    if (!cli) {
+      const lead = await Lead.findByPhone(phone);
+      if (lead) leadId = lead.id;
+    }
+    conv = await Conversation.create({ lead_id: leadId, phone });
+  }
+  // Dedup: mesma mensagem já gravada nos últimos 120s (eco da IA ou do CRM).
+  const jaExiste = await Message.existsRecentByContent(conv.id, text, 120);
+  if (jaExiste) return { skipped: true, reason: 'duplicada' };
+  await Message.create({ conversation_id: conv.id, role: 'assistant', content: text, sender: 'humano' });
+  await Conversation.touch(conv.id, text);
+  return { ok: true };
 }

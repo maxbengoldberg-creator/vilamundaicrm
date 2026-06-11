@@ -8,7 +8,9 @@ export async function runAgent(req, res, next) {
   try {
     const { phone, text, pushName } = req.body;
     if (!phone || !text) return res.status(400).json({ error: 'phone e text são obrigatórios' });
-    const r = await handleIncoming({ phone, text, pushName });
+    // operador=true: o texto é uma ORDEM do operador (botão Prompt do funil),
+    // não uma fala do lead. O agente segue a ordem e usa o histórico só como contexto.
+    const r = await handleIncoming({ phone, text, pushName, operador: true });
     res.json(r);
   } catch (e) { next(e); }
 }

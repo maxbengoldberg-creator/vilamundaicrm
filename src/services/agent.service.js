@@ -56,6 +56,20 @@ O lead ainda não te conhece. Use a saudação "${saudacao()}" e apresente-se br
 Na MESMA mensagem, responda também ao que o lead trouxer (pergunta, pedido, comentário) — nunca mande só a saudação/apresentação e deixe o resto para a próxima resposta. O lead não pode ficar sem resposta ao que ele perguntou.`;
 }
 
+// Mensagem do operador (botão Prompt do funil), anexada como turno do usuário.
+// Deixa explícito que é uma ORDEM, não fala do lead, e que o histórico é só contexto.
+function instrucaoOperadorUser(text) {
+  return `[INSTRUÇÃO DO OPERADOR — isto NÃO é o lead falando]
+${text}
+
+Execute exatamente esta instrução agora. Use o histórico da conversa só para entender o contexto e manter coerência: NÃO reresponda perguntas antigas, NÃO reenvie fotos, vídeos nem mapa, NÃO refaça orçamento ou disponibilidade. Apenas cumpra a instrução acima e dê continuidade de forma natural.`;
+}
+
+// Bloco anexado ao system prompt quando a ação parte do operador.
+function instrucaoOperadorSystem() {
+  return `\n\nPRIORIDADE MÁXIMA — ORDEM DO OPERADOR: a última mensagem é uma ordem de um operador humano, não do lead. Faça SOMENTE o que ela pede. O histórico serve apenas para você entender o que já aconteceu e não repetir nem contradizer. Não execute a rotina padrão da etapa e não use ferramentas de envio de mídia, orçamento ou disponibilidade, a menos que a ordem peça isso explicitamente.`;
+}
+
 // Mensagem fixa de abertura para leads de anúncio (Meta Ads) na primeira mensagem.
 function aberturaAnuncio() {
   return `${saudacao()}, eu sou o Max, host da Vila Mundaí, tudo bem? Me conta, já tem datas pra viagem?`;
@@ -156,9 +170,10 @@ function toClaudeMessages(rows) {
   return msgs;
 }
 
-export async function handleIncoming({ phone, text, pushName }) {
+export async function handleIncoming({ phone, text, pushName, operador = false }) {
   const robotOn = await Setting.get('robot_enabled', true);
-  if (robotOn === false) {
+  // Ordem do operador roda mesmo com o robô desligado ou a IA pausada no lead.
+  if (!operador && robotOn === false) {
     // Robô geral desligado: a IA não responde, mas a mensagem do lead ainda
     // precisa ser gravada para aparecer no painel (atendimento humano).
     const cli = await Cliente.findByPhone(phone);
@@ -179,7 +194,7 @@ export async function handleIncoming({ phone, text, pushName }) {
   let lead = await Lead.findByPhone(phone);
   if (!lead) lead = await Lead.create({ phone, nome: pushName || null, origem: 'whatsapp' });
 
-  if (!lead.ai_enabled) {
+  if (!operador && !lead.ai_enabled) {
     await persistInbound(lead.id, phone, text);
     return { skipped: true, reason: 'ia_pausada' };
   }
@@ -190,14 +205,18 @@ export async function handleIncoming({ phone, text, pushName }) {
 
   // Anúncio Click-to-WhatsApp: detecta pelo texto automático do formulário.
   // Marca a origem no lead (pra refletir no CRM) já que não passa pelo webhook do Meta.
-  if (isFirstMessage && lead.origem !== 'meta_ads' && pareceAnuncio(text)) {
+  if (!operador && isFirstMessage && lead.origem !== 'meta_ads' && pareceAnuncio(text)) {
     await Lead.update(lead.id, { origem: 'meta_ads' });
     lead.origem = 'meta_ads';
     console.log(`[agente] lead ${phone} detectado como anúncio pelo texto — origem marcada como meta_ads`);
   }
 
-  await Message.create({ conversation_id: conv.id, role: 'user', content: text, sender: 'lead' });
-  await Conversation.touch(conv.id, text);
+  // A ordem do operador NÃO é gravada como mensagem do lead (não polui o painel
+  // nem o histórico). Só a resposta do agente será persistida.
+  if (!operador) {
+    await Message.create({ conversation_id: conv.id, role: 'user', content: text, sender: 'lead' });
+    await Conversation.touch(conv.id, text);
+  }
 
   // Se já há um processamento em andamento para este lead, a mensagem já está
   // salva no banco e será lida pelo invocation ativo via listRecent após o delay.
@@ -209,7 +228,7 @@ export async function handleIncoming({ phone, text, pushName }) {
   try {
   // Lead de anúncio (Meta Ads) na primeira mensagem: abertura fixa, 10s de delay,
   // sem chamar o Claude. A mensagem do lead é o texto automático do formulário.
-  if (isFirstMessage && lead.origem === 'meta_ads') {
+  if (!operador && isFirstMessage && lead.origem === 'meta_ads') {
     await delay(10000);
     const abertura = aberturaAnuncio();
     await zapi.sendText(phone, abertura);
@@ -219,12 +238,17 @@ export async function handleIncoming({ phone, text, pushName }) {
     return { ok: true, reply: abertura, modo: 'abertura_anuncio' };
   }
 
-  if (isFirstMessage) await delay(40000);
-  else if (isMsgCurta(text)) await delay(15000);
-  else await delay(5000);
+  // Ordem do operador é imediata (sem delay de digitação).
+  if (!operador) {
+    if (isFirstMessage) await delay(40000);
+    else if (isMsgCurta(text)) await delay(15000);
+    else await delay(5000);
+  }
 
   const history = await Message.listRecent(conv.id, 20);
   let messages = toClaudeMessages(history);
+  // Anexa a ordem do operador como último turno do usuário (não foi persistida).
+  if (operador) messages.push({ role: 'user', content: instrucaoOperadorUser(text) });
   console.log(`[agente] lead ${phone} historico=${history.length}msgs janela=${messages.length}msgs primeira_role=${messages[0]?.role || '-'} ultima_role=${messages[messages.length-1]?.role || '-'}`);
 
   // Texto que o Claude emite ao longo das rodadas. O modelo costuma mandar texto
@@ -240,10 +264,11 @@ export async function handleIncoming({ phone, text, pushName }) {
       buildSystemPrompt({ ...lead, stage: effectiveStage }),
       getStageModel(effectiveStage),
     ]);
-    if (isFirstMessage) {
+    if (isFirstMessage && !operador) {
       system += primeiraMensagemContexto();
       console.log(`[agente] lead ${phone} primeira mensagem da conversa — contexto de abertura injetado no system prompt`);
     }
+    if (operador) system += instrucaoOperadorSystem();
     if (!system || !system.trim()) {
       console.error(`[agente] ALERTA prompt VAZIO para stage=${effectiveStage} (cache/banco?). lead ${phone}`);
     }

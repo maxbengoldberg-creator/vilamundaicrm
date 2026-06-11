@@ -39,6 +39,19 @@ export async function update(id, patch) {
   return rows[0];
 }
 
+// Acrescenta tags ao lead sem duplicar nem apagar as existentes.
+export async function addTags(id, novas = []) {
+  if (!Array.isArray(novas) || novas.length === 0) return findById(id);
+  const { rows } = await query(
+    `UPDATE leads
+        SET tags = (SELECT array_agg(DISTINCT t) FROM unnest(coalesce(tags, '{}') || $2::text[]) t),
+            updated_at = now()
+      WHERE id = $1 RETURNING *`,
+    [id, novas]
+  );
+  return rows[0];
+}
+
 export async function list({ stage } = {}) {
   if (stage) {
     const { rows } = await query('SELECT * FROM leads WHERE stage = $1 ORDER BY updated_at DESC', [stage]);

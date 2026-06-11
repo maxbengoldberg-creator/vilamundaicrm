@@ -40,10 +40,23 @@ function interpolate(template, lead) {
       : 'não registradas');
 }
 
+// Bloco dinâmico com o que já foi feito nesta conversa (via tags), para o
+// agente nunca repetir oferta de fotos ou ações já concluídas.
+function estadoLead(lead) {
+  const tags = Array.isArray(lead.tags) ? lead.tags : [];
+  const linhas = [];
+  if (tags.includes('imagens_1q_enviadas')) linhas.push('As fotos do apartamento de 1 quarto JÁ foram enviadas — não ofereça nem pergunte de novo se quer ver.');
+  if (tags.includes('imagens_2q_enviadas')) linhas.push('As fotos do apartamento de 2 quartos JÁ foram enviadas — não ofereça nem pergunte de novo se quer ver.');
+  if (tags.includes('imagens_area_externa_enviadas')) linhas.push('As fotos da área externa/piscina JÁ foram enviadas.');
+  if (tags.includes('endereco_enviado')) linhas.push('O mapa da localização JÁ foi enviado.');
+  if (linhas.length === 0) return '';
+  return '\n\nJÁ ACONTECEU NESTA CONVERSA (nunca repita nem pergunte de novo):\n- ' + linhas.join('\n- ');
+}
+
 export async function buildStagePrompt(lead) {
   const map = await getStageMap();
   const entry = map[lead.stage] || map['qualif'] || {};
-  return interpolate(entry.prompt_body || '', lead);
+  return interpolate(entry.prompt_body || '', lead) + estadoLead(lead);
 }
 
 export async function getStageModel(stage) {

@@ -21,6 +21,16 @@ const PLACE_TYPE_IDS = {
 // Preços por ocupação são configurados diretamente no PMS e variam por faixa
 // de datas. Não usamos tabela hardcoded — o preço real vem de cotarNativo.
 
+// Tag aplicada ao lead quando cada tipo de mídia é enviado, para o agente
+// saber o que já mostrou e não repetir a oferta de fotos.
+const TAG_POR_MIDIA = {
+  'apto-1-quarto-terreo': 'imagens_1q_enviadas',
+  'apto-1-quarto-superior': 'imagens_1q_enviadas',
+  'apartamento-dois-quartos': 'imagens_2q_enviadas',
+  'area-externa': 'imagens_area_externa_enviadas',
+  'endereco': 'endereco_enviado',
+};
+
 function nextStage(current) {
   if (current === 'morno') return MORNO_NEXT;
   const idx = STAGE_ORDER.indexOf(current);
@@ -128,6 +138,9 @@ export const HANDLERS = {
       if (isVideo) await zapi.sendVideo(ctx.phone, foto.url, '');
       else await zapi.sendImage(ctx.phone, foto.url, '');
     }
+    // Marca no lead o que já foi enviado, para o agente não oferecer/perguntar de novo.
+    const tag = TAG_POR_MIDIA[input.tipo_apto];
+    if (tag && ctx.lead?.id) await Lead.addTags(ctx.lead.id, [tag]);
     return { ok: true, enviadas: rows.length, tipo_apto: input.tipo_apto };
   },
 

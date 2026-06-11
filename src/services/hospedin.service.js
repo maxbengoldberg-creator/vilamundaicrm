@@ -179,6 +179,60 @@ export const hospedin = {
   },
 };
 
+// Cria uma pré-reserva SEM enviar valor: o PMS precifica sozinho
+// (tarifa base da faixa de datas + desconto por ocupação configurado no PMS).
+// É a única forma de obter o preço exato com as regras por nº de hóspedes.
+hospedin.cotarNativo = async function ({ checkin, checkout, guests, place_type_id, nome }) {
+  const h = await authHeaders();
+  const guest = await hospedin.criarGuest(nome || 'Cotação CRM');
+  const pt = PLACE_TYPES.find(p => p.id === Number(place_type_id));
+  if (!pt) return { ok: false, erro: `place_type_id inválido: ${place_type_id}` };
+  let ultimoErro = null;
+  for (const pid of pt.places) {
+    try {
+      const { data } = await axios.post(
+        `${BASE}/${ACCOUNT_ID}/reservations`,
+        {
+          sale_channel_id: SALE_CHANNEL_ID,
+          place_type_id: pt.id,
+          place_id: pid,
+          status: 'pre_reservation',
+          check_in: checkin,
+          check_out: checkout,
+          adults: Number(guests) || 2,
+          children: 0,
+          exempt: 0,
+          guest_id: guest.id,
+          has_breakfast: false,
+          note: `Cotação automática do CRM: ${guests} hóspedes, preço nativo do PMS.`,
+        },
+        { headers: h }
+      );
+      const noites = Math.round((new Date(checkout) - new Date(checkin)) / 86400000);
+      const total = (data.total_amount || 0) / 100;
+      return {
+        ok: true,
+        pms_id: data.id,
+        codigo: data.searchable_code,
+        acomodacao: pt.nome,
+        place_id: pid,
+        noites,
+        total,
+        diaria_media: noites ? Math.round((total / noites) * 100) / 100 : null,
+        raw: data,
+      };
+    } catch (err) {
+      ultimoErro = err.response?.data || err.message;
+      if (/em uso/i.test(JSON.stringify(ultimoErro))) {
+        console.warn(`[hospedin] cotarNativo: unidade ${pid} ocupada, tentando próxima`);
+        continue;
+      }
+      throw err;
+    }
+  }
+  return { ok: false, erro: 'Nenhuma unidade desse tipo livre no período.', detalhe: ultimoErro };
+};
+
 // ===== BOAS-VINDAS / CHEGADAS =====
 const CANAL_MAP = { 177874: 'Airbnb', 171931: 'Booking.com', 269875: 'Chat IA' };
 

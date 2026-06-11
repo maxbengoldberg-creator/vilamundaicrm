@@ -20,9 +20,6 @@ api.use(requireApiKey);
 
 // Agente
 api.post('/agent/run', runAgent);
-
-// Cotação exata no PMS (cria pré-reserva sem valor; o PMS precifica)
-api.post('/pms/cotacao', crm.cotacaoPms);
 api.post('/automations/generate', generateAutomation);
 
 // Leads

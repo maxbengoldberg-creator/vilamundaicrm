@@ -46,9 +46,12 @@ function nextStage(current) {
 // ==========================================================
 
 export const HANDLERS = {
-  async consultar_disponibilidade(input) {
+  async consultar_disponibilidade(input, ctx) {
     const r = await hospedin.disponibilidade(input);
     if (!r.ok || !Array.isArray(r.disponiveis) || r.disponiveis.length === 0) return r;
+    // Marca que o orçamento já foi consultado nesta conversa, para o agente não
+    // oferecer "quer que eu veja os valores?" de novo (só reconsulta em mudança).
+    if (ctx?.lead?.id) await Lead.addTags(ctx.lead.id, ['orcamento_apresentado']);
     // Busca o preço real de cada apto disponível em paralelo, criando pré-reservas
     // temporárias no PMS (canceladas imediatamente). Isso garante que o preço
     // já inclui a tarifa da faixa de datas + o desconto por ocupação configurado

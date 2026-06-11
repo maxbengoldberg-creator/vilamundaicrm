@@ -155,7 +155,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--txt)}
 .cl-sr i{color:var(--txt-3);font-size:17px}
 .cl-convs{flex:1;overflow-y:auto}
 .cv{display:flex;gap:10px;padding:12px 14px;cursor:pointer;border-bottom:1px solid var(--line);transition:.1s}
-.cv:hover{background:var(--surf)}.cv.active{background:var(--surf-2);border-left:3px solid var(--blue)}
+.cv:hover{background:var(--surf)}.cv.active{background:rgba(79,143,247,.18);border-left:3px solid var(--blue)}.cv.active .cn b{color:#fff}.cv.active .pv{color:var(--txt)}
 .cv .cav{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:14px;flex-shrink:0;position:relative}
 .cv .cav .wa{position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;background:var(--wa);border-radius:50%;border:2px solid var(--bg-2);display:grid;place-items:center;color:#fff;font-size:7px}
 .cv .cc{flex:1;min-width:0}
@@ -825,11 +825,11 @@ async function vChat(){
   S.robotOn=robot.enabled!==false;
   const vis=visibleConvs();
   if(!S.activeConv&&vis.length)S.activeConv=vis[0].id;
-  if(S.activeConv&&!convs.find(c=>c.id===S.activeConv))S.activeConv=vis[0]?.id||null;
+  if(S.activeConv&&!convs.find(c=>sameId(c.id,S.activeConv)))S.activeConv=vis[0]?.id||null;
   let msgs=[];
   if(S.activeConv)msgs=await GET(`/api/v1/conversations/${S.activeConv}/messages`).catch(()=>[]);
   S.msgs=msgs;
-  const ac=convs.find(c=>c.id===S.activeConv)||null;
+  const ac=convs.find(c=>sameId(c.id,S.activeConv))||null;
   document.getElementById('main').innerHTML=`<div class="view active" style="height:100vh">
   <div class="chat-layout">
     <div class="cl-list">
@@ -870,6 +870,7 @@ async function vChat(){
   startChatPoll();
 }
 /* ---- lista de conversas: filtro, busca e ordenação por pendência ---- */
+function sameId(a,b){return String(a)===String(b)}
 function aguardandoHumano(c){return Number(c.unread)>0&&(!c.ai_enabled||!S.robotOn)}
 function visibleConvs(){
   const q=(S.chatSearch||'').toLowerCase().trim();
@@ -887,7 +888,7 @@ function convItemHTML(c){
   const st=COLS.find(x=>x.id===c.stage);
   const un=Number(c.unread||0);
   const ag=aguardandoHumano(c);
-  return `<div class="cv ${c.id===S.activeConv?'active':''}" data-id="${c.id}" onclick="openConv(${c.id})">
+  return `<div class="cv ${sameId(c.id,S.activeConv)?'active':''}" data-id="${c.id}" onclick="openConv(${c.id})">
   <div class="cav" style="background:${avColor(c.nome||c.phone)}">${initials(c.nome||c.phone)}<span class="wa"><i class="ti ti-brand-whatsapp"></i></span></div>
   <div class="cc">
     <div class="cn"><b style="${un?'color:#fff':''}">${c.nome||c.phone}</b>
@@ -955,11 +956,11 @@ function fichaHTML(c){
 function renderFicha(c){const el=document.getElementById('chatInfo');if(el)el.innerHTML=fichaHTML(c)}
 function fichaSig(c){return [c.nome,c.stage,c.ai_enabled,c.checkin,c.checkout,c.guests,c.valor_cotado,(c.tags||[]).join(','),JSON.stringify(c.extra||{})].join('|')}
 async function toggleAIChat(leadId){
-  const next=!(S.convs.find(x=>x.lead_id===leadId)||{}).ai_enabled;
+  const next=!(S.convs.find(x=>sameId(x.lead_id,leadId))||{}).ai_enabled;
   try{await PATCH(`/api/v1/leads/${leadId}/ai`,{ai_enabled:next})}catch(e){toast(e.message,false);return}
-  S.convs.forEach(c=>{if(c.lead_id===leadId)c.ai_enabled=next});
+  S.convs.forEach(c=>{if(sameId(c.lead_id,leadId))c.ai_enabled=next});
   toast(next?'IA reativada':'Atendimento humano ativado');
-  const ac=S.convs.find(c=>c.id===S.activeConv);
+  const ac=S.convs.find(c=>sameId(c.id,S.activeConv));
   renderChatHead(ac);renderFicha(ac);refreshConvList();
 }
 /* ---- resumo do agente (Haiku, cacheado no servidor) ---- */
@@ -973,11 +974,11 @@ function resumoHTML(r){
     <b style="color:${cor};font-size:12.5px">${lbl}${r.conversao_pct?` (${r.conversao_pct}%)`:''}</b>
   </div>`;
 }
-async function loadResumo(id,force=false){
+async function loadResumo(id,force=false){if(!id)return;
   const blk=document.getElementById('resumoBlk');
   if(blk)blk.innerHTML='<span style="color:var(--txt-3);font-size:11.5px">Analisando conversa…</span>';
   const r=await POST(`/api/v1/conversations/${id}/resumo`,force?{force:true}:{}).catch(()=>null);
-  if(S.activeConv!==id)return;
+  if(!sameId(S.activeConv,id))return;
   S.resumoConvId=id;S.resumoHTML=resumoHTML(r);
   const b2=document.getElementById('resumoBlk');if(b2)b2.innerHTML=S.resumoHTML;
 }
@@ -1009,11 +1010,11 @@ function msgHTML(m){
 }
 /* ---- abrir conversa: atualização IMEDIATA do cabeçalho/ficha (sem esperar rede) ---- */
 async function openConv(id){
-  if(S.activeConv===id)return;
+  if(sameId(S.activeConv,id))return;
   S.activeConv=id;
-  const c=S.convs.find(x=>x.id===id);
+  const c=S.convs.find(x=>sameId(x.id,id));
   renderChatHead(c);renderFicha(c);
-  document.querySelectorAll('#clConvs .cv').forEach(el=>el.classList.toggle('active',+el.dataset.id===id));
+  document.querySelectorAll('#clConvs .cv').forEach(el=>el.classList.toggle('active',sameId(el.dataset.id,id)));
   const foot=document.querySelector('.cm-foot');if(foot)foot.style.display='';
   const b=document.getElementById('cmBody');if(b)b.innerHTML='<div style="color:var(--txt-3);font-size:12.5px;text-align:center;padding:30px">Carregando…</div>';
   S._fichaSig=c?fichaSig(c):'';
@@ -1022,7 +1023,7 @@ async function openConv(id){
   refreshConvList();
   loadResumo(id);
   const msgs=await GET(`/api/v1/conversations/${id}/messages`).catch(()=>[]);
-  if(S.activeConv!==id)return;
+  if(!sameId(S.activeConv,id))return;
   S.msgs=msgs;S._msgSig=msgSig(msgs);
   const b2=document.getElementById('cmBody');
   if(b2){b2.innerHTML=msgsBodyHTML(msgs);b2.scrollTop=b2.scrollHeight;}
@@ -1044,14 +1045,14 @@ async function toggleRobotGeral(el){
   }catch(e){toast('Erro ao alterar',false);el.classList.toggle('off')}
 }
 async function sendMsg(){
-  const c=S.convs.find(x=>x.id===S.activeConv);if(!c)return;
+  const c=S.convs.find(x=>sameId(x.id,S.activeConv));if(!c)return;
   const i=document.getElementById('cmInput');if(!i||!i.value.trim())return;
   const text=i.value.trim();i.value='';
   await POST(`/api/v1/conversations/${c.id}/send`,{text}).catch(e=>toast(e.message,false));
   toast('Mensagem enviada');
   setTimeout(async()=>{
     const msgs=await GET(`/api/v1/conversations/${c.id}/messages`).catch(()=>null);
-    if(!msgs||S.activeConv!==c.id)return;
+    if(!msgs||!sameId(S.activeConv,c.id))return;
     S.msgs=msgs;S._msgSig=msgSig(msgs);
     const b=document.getElementById('cmBody');
     if(b){b.innerHTML=msgsBodyHTML(msgs);b.scrollTop=b.scrollHeight;}
@@ -1072,7 +1073,7 @@ async function pollChat(){
   const cs=convSig(convs);
   if(cs!==S._convSig){S._convSig=cs;refreshConvList()}
   if(!S.activeConv)return;
-  const ac=convs.find(c=>c.id===S.activeConv);
+  const ac=convs.find(c=>sameId(c.id,S.activeConv));
   if(ac){
     const fs=fichaSig(ac);
     if(fs!==S._fichaSig){S._fichaSig=fs;renderChatHead(ac);renderFicha(ac)}

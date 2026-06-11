@@ -1,7 +1,9 @@
 import * as Cliente from '../models/cliente.model.js';
+import * as Lead from '../models/lead.model.js';
 import { hospedin } from '../services/hospedin.service.js';
 import { zapi } from '../services/zapi.service.js';
 import * as Setting from '../models/setting.model.js';
+import { query } from '../config/db.js';
 
 export async function importarChegadas(req, res, next) {
   try {
@@ -53,6 +55,15 @@ export async function enviarBoasVindas(req, res, next) {
     const msg = montarBoasVindas(cliente.nome);
     await zapi.sendText(cliente.phone, msg);
     await Cliente.update(cliente.id, { boas_vindas_enviada: true });
+
+    // Reserva confirmada: garante o lead no funil GANHO com a IA desligada
+    // (acompanhamento humano) e vincula as conversas abertas deste telefone
+    // ao lead para a ficha aparecer no Atendimentos.
+    let lead = await Lead.findByPhone(cliente.phone);
+    if (!lead) lead = await Lead.create({ phone: cliente.phone, nome: cliente.nome, origem: 'reserva' });
+    await Lead.update(lead.id, { stage: 'ganho', ai_enabled: false, ...(lead.nome ? {} : { nome: cliente.nome }) });
+    await query(`UPDATE conversations SET lead_id = $1 WHERE phone = $2 AND lead_id IS NULL`, [lead.id, cliente.phone]);
+
     res.json({ ok: true, mensagem: msg });
   } catch (e) { next(e); }
 }

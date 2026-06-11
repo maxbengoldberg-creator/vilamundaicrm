@@ -54,14 +54,30 @@ export async function enviarBoasVindas(req, res, next) {
     if (!cliente.phone) return res.status(400).json({ error: 'cliente sem telefone' });
     const msg = montarBoasVindas(cliente.nome);
     await zapi.sendText(cliente.phone, msg);
-    await Cliente.update(cliente.id, { boas_vindas_enviada: true });
 
-    // Reserva confirmada: garante o lead no funil GANHO com a IA desligada
-    // (acompanhamento humano) e vincula as conversas abertas deste telefone
-    // ao lead para a ficha aparecer no Atendimentos.
+    // Desliga a IA na tabela clientes ANTES de marcar boas_vindas_enviada,
+    // para que o webhook da resposta do cliente já encontre ai_enabled=false.
+    await Cliente.update(cliente.id, { boas_vindas_enviada: true, ai_enabled: false });
+
+    // Garante lead no funil GANHO com IA desligada e com os dados da reserva
+    // (origem, datas, valor) para aparecer corretamente no painel Atendimentos.
     let lead = await Lead.findByPhone(cliente.phone);
     if (!lead) lead = await Lead.create({ phone: cliente.phone, nome: cliente.nome, origem: 'reserva' });
-    await Lead.update(lead.id, { stage: 'ganho', ai_enabled: false, ...(lead.nome ? {} : { nome: cliente.nome }) });
+    const origemLead = cliente.canal === 'Airbnb' ? 'airbnb'
+                     : cliente.canal === 'Booking.com' ? 'booking'
+                     : 'reserva';
+    const valorCotado = cliente.receita_cents ? Math.round(cliente.receita_cents / 100) : null;
+    await Lead.update(lead.id, {
+      stage: 'ganho',
+      ai_enabled: false,
+      nome: lead.nome || cliente.nome,
+      origem: origemLead,
+      ...(cliente.check_in ? { checkin: String(cliente.check_in).slice(0, 10) } : {}),
+      ...(cliente.check_out ? { checkout: String(cliente.check_out).slice(0, 10) } : {}),
+      ...(cliente.pessoas ? { guests: cliente.pessoas } : {}),
+      ...(valorCotado ? { valor_cotado: valorCotado } : {}),
+    });
+    // Vincula conversas abertas deste telefone ao lead (para a ficha aparecer).
     await query(`UPDATE conversations SET lead_id = $1 WHERE phone = $2 AND lead_id IS NULL`, [lead.id, cliente.phone]);
 
     res.json({ ok: true, mensagem: msg });

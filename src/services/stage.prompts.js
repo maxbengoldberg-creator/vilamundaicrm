@@ -53,10 +53,23 @@ function estadoLead(lead) {
   return '\n\nJÁ ACONTECEU NESTA CONVERSA (nunca repita nem pergunte de novo):\n- ' + linhas.join('\n- ');
 }
 
+// Regra fixa de preço, anexada a TODAS as etapas (no código, para nenhuma
+// edição de prompt no banco perder essa proteção). O preço vem do PMS e
+// varia por nº de hóspedes e por datas.
+const REGRA_PRECO = `
+
+REGRA DE PREÇO (vale em qualquer etapa, prioridade máxima):
+O preço depende do número de hóspedes e das datas — quem calcula é o PMS.
+Se o lead mencionar QUALQUER mudança no tamanho do grupo (mais uma pessoa, primo, amigo, criança, "e se formos X") ou perguntar o valor para outra quantidade de pessoas:
+1. Atualize a ficha com extrair_dados_lead (novo guests).
+2. Reconsulte com consultar_disponibilidade usando o novo número.
+3. Apresente o novo total retornado.
+NUNCA afirme que o preço não muda com o número de pessoas e NUNCA responda o valor de outra quantidade de hóspedes de memória, sem reconsultar. Crianças contam como hóspedes. O mesmo vale se as datas mudarem.`;
+
 export async function buildStagePrompt(lead) {
   const map = await getStageMap();
   const entry = map[lead.stage] || map['qualif'] || {};
-  return interpolate(entry.prompt_body || '', lead) + estadoLead(lead);
+  return interpolate(entry.prompt_body || '', lead) + REGRA_PRECO + estadoLead(lead);
 }
 
 export async function getStageModel(stage) {

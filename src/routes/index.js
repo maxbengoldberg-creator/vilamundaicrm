@@ -24,6 +24,8 @@ api.post('/automations/generate', generateAutomation);
 
 // Cotação nativa no PMS (cria pré-reserva sem valor; o PMS precifica)
 api.post('/pms/cotacao', crm.cotacaoPms);
+// Cancelar reserva no PMS por ID
+api.delete('/pms/reservations/:id', crm.cancelarReservaPms);
 
 // Leads
 api.get('/leads', crm.listLeads);

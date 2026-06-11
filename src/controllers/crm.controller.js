@@ -6,6 +6,16 @@ import { zapi } from '../services/zapi.service.js';
 import { hospedin } from '../services/hospedin.service.js';
 import { query } from '../config/db.js';
 
+/* ---- CANCELAR RESERVA NO PMS ---- */
+export async function cancelarReservaPms(req, res) {
+  try {
+    const r = await hospedin.cancelarReserva(req.params.id);
+    res.json(r);
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data || e.message });
+  }
+}
+
 /* ---- COTAÇÃO PMS (preço nativo com desconto por ocupação) ---- */
 export async function cotacaoPms(req, res) {
   try {

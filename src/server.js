@@ -59,8 +59,11 @@ app.listen(env.port, () => {
     query(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS conversao_pct INTEGER`),
   ]).catch(err => console.error('[server] migrate falhou:', err.message));
 
-  // Job de morno: roda imediatamente e depois a cada 1 hora
-  mornoJob();
-  setInterval(mornoJob, 60 * 60 * 1000);
-  console.log('[server] morno.job registrado (intervalo: 1h)');
+  // Job de morno DESATIVADO por ora: morno é só um estágio passivo de
+  // estacionamento (IA desligada), sem mover leads automaticamente nem
+  // reaquecer. Para religar o auto-movimento quente->morno, reative abaixo.
+  void mornoJob; // mantém o import; job pausado intencionalmente
+  // mornoJob();
+  // setInterval(mornoJob, 60 * 60 * 1000);
+  console.log('[server] morno.job PAUSADO (morno é estágio passivo)');
 });

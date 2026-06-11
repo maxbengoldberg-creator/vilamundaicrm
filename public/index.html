@@ -962,12 +962,14 @@ function fichaSig(c){return [c.nome,c.stage,c.ai_enabled,c.checkin,c.checkout,c.
 async function moverLeadChat(leadId,stage){
   if(!leadId)return;
   const patch={stage};
-  // Lead Frio: parar o atendimento — sem comando, só estaciona com a IA off.
-  if(stage==='frio')patch.ai_enabled=false;
+  // Frio e Morno: estágios passivos — estacionam o lead com a IA desligada,
+  // sem comando nem automação.
+  const passivo=(stage==='frio'||stage==='morno');
+  if(passivo)patch.ai_enabled=false;
   try{await PATCH(`/api/v1/leads/${leadId}`,patch)}catch(e){toast(e.message,false);return}
-  S.convs.forEach(c=>{if(sameId(c.lead_id,leadId)){c.stage=stage;if(stage==='frio')c.ai_enabled=false}});
+  S.convs.forEach(c=>{if(sameId(c.lead_id,leadId)){c.stage=stage;if(passivo)c.ai_enabled=false}});
   const col=COLS.find(x=>x.id===stage);
-  toast('Movido para '+(col?col.nome:stage)+(stage==='frio'?' — IA desativada':''));
+  toast('Movido para '+(col?col.nome:stage)+(passivo?' — IA desativada':''));
   const ac=S.convs.find(c=>sameId(c.id,S.activeConv));
   renderChatHead(ac);renderFicha(ac);refreshConvList();
 }

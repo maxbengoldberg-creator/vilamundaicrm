@@ -1071,9 +1071,8 @@ function fichaSig(c){return [c.nome,c.stage,c.ai_enabled,c.checkin,c.checkout,c.
 async function moverLeadChat(leadId,stage){
   if(!leadId)return;
   const patch={stage};
-  // Frio e Morno: estágios passivos — estacionam o lead com a IA desligada,
-  // sem comando nem automação.
-  const passivo=(stage==='frio'||stage==='morno');
+  // Frio, Morno e Ganho: IA desligada — atendimento humano.
+  const passivo=(stage==='frio'||stage==='morno'||stage==='ganho');
   if(passivo)patch.ai_enabled=false;
   try{await PATCH(`/api/v1/leads/${leadId}`,patch)}catch(e){toast(e.message,false);return}
   S.convs.forEach(c=>{if(sameId(c.lead_id,leadId)){c.stage=stage;if(passivo)c.ai_enabled=false}});

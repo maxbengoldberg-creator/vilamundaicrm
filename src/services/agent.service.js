@@ -23,7 +23,8 @@ async function resolveEffectiveStage(lead) {
   const tags = Array.isArray(lead.tags) ? lead.tags : [];
 
   if (tags.includes('ganho') && lead.stage !== 'ganho') {
-    await Lead.update(lead.id, { stage: 'ganho' });
+    // GANHO = atendimento humano: corrige o stage e desliga a IA junto.
+    await Lead.update(lead.id, { stage: 'ganho', ai_enabled: false });
     return 'ganho';
   }
 

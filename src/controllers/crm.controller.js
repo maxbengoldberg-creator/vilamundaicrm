@@ -92,7 +92,13 @@ export async function createLead(req, res, next) {
   } catch (e) { next(e); }
 }
 export async function updateLead(req, res, next) {
-  try { res.json(await Lead.update(req.params.id, req.body)); } catch (e) { next(e); }
+  try {
+    // Regra do CEO: lead em GANHO fica sem IA (atendimento humano).
+    // Vale para qualquer caminho que mova o stage: Kanban, modal, chat.
+    const patch = { ...req.body };
+    if (patch.stage === 'ganho') patch.ai_enabled = false;
+    res.json(await Lead.update(req.params.id, patch));
+  } catch (e) { next(e); }
 }
 export async function getLead(req, res, next) {
   try {

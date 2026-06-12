@@ -1,5 +1,29 @@
 import { handleIncoming, persistOutboundHuman } from '../services/agent.service.js';
+import * as Lead from '../models/lead.model.js';
 import { query } from '../config/db.js';
+
+// Resolve a identidade do remetente. O WhatsApp às vezes entrega o contato
+// como "@lid" (identificador de privacidade) em vez do número. Mapeamos o LID
+// ao telefone real (guardado no lead) para a mesma pessoa não virar 2 contatos.
+async function resolverContato(body) {
+  const rawPhone = body.phone || body.participantPhone || null;
+  const senderLid = body.senderLid || body.participantLid || null;
+  const lidNum = String(senderLid || (String(rawPhone).includes('@') ? rawPhone : '')).replace(/\D/g, '') || null;
+  let phone = rawPhone;
+  if (rawPhone && String(rawPhone).includes('@')) {
+    console.warn('[webhook] phone veio como @lid:', JSON.stringify(body).slice(0, 900));
+    if (lidNum) {
+      const known = await Lead.findByLid(lidNum);
+      if (known) {
+        console.log(`[webhook] @lid ${lidNum} resolvido para ${known.phone} (lead ${known.id})`);
+        phone = known.phone;
+      } else {
+        console.warn(`[webhook] @lid ${lidNum} sem mapeamento ainda — contato provisório`);
+      }
+    }
+  }
+  return { phone, lid: lidNum };
+}
 
 // ==========================================================
 //  Webhook do Z-API. Configure na Z-API (Webhooks > "Ao receber")
@@ -15,8 +39,8 @@ export async function whatsappWebhook(req, res) {
   try {
     const body = req.body || {};
 
-    // Telefone do contato (Z-API manda em "phone").
-    const phone = body.phone || body.participantPhone;
+    // Resolve telefone real + LID (trata o caso "@lid").
+    const { phone, lid } = await resolverContato(body);
     if (!phone) return;
 
     // Extrai o texto (Z-API: text.message). Outros tipos podemos tratar depois.
@@ -41,7 +65,7 @@ export async function whatsappWebhook(req, res) {
     }
 
     const pushName = body.senderName || body.chatName || null;
-    await handleIncoming({ phone, text, pushName });
+    await handleIncoming({ phone, text, pushName, lid });
   } catch (e) {
     console.error('[webhook] erro ao processar:', e.message);
   }

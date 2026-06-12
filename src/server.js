@@ -57,6 +57,10 @@ app.listen(env.port, () => {
     query(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS resumo_msgs INTEGER`),
     query(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS conversao TEXT`),
     query(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS conversao_pct INTEGER`),
+    // Identidade WhatsApp: mapeia o "@lid" (identificador de privacidade) ao
+    // telefone real, para a mesma pessoa não virar dois contatos.
+    query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS lid TEXT`),
+    query(`CREATE INDEX IF NOT EXISTS idx_leads_lid ON leads(lid)`),
   ]).catch(err => console.error('[server] migrate falhou:', err.message));
 
   // Job de morno DESATIVADO por ora: morno é só um estágio passivo de

@@ -170,7 +170,7 @@ function toClaudeMessages(rows) {
   return msgs;
 }
 
-export async function handleIncoming({ phone, text, pushName, operador = false }) {
+export async function handleIncoming({ phone, text, pushName, lid = null, operador = false }) {
   const robotOn = await Setting.get('robot_enabled', true);
 
   // CLIENTE (hóspede confirmado): o handler persiste primeiro e decide depois.
@@ -185,6 +185,13 @@ export async function handleIncoming({ phone, text, pushName, operador = false }
   // no funil (qualificação) e em Atendimentos.
   let lead = await Lead.findByPhone(phone);
   if (!lead) lead = await Lead.create({ phone, nome: pushName || null, origem: 'whatsapp' });
+
+  // Guarda o LID no lead de telefone REAL (não no provisório @lid) para mapear
+  // futuras mensagens que cheguem só com o @lid de volta a este contato.
+  if (lid && !String(phone).includes('@') && lead.lid !== lid) {
+    await Lead.update(lead.id, { lid }).catch(() => {});
+    lead.lid = lid;
+  }
 
   let conv = await Conversation.findOpenByPhone(phone);
   const isFirstMessage = !conv;

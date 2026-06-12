@@ -10,6 +10,13 @@ export async function findById(id) {
   return rows[0] || null;
 }
 
+// Acha o lead pelo LID (identificador de privacidade do WhatsApp, só dígitos).
+export async function findByLid(lid) {
+  if (!lid) return null;
+  const { rows } = await query('SELECT * FROM leads WHERE lid = $1 ORDER BY id ASC LIMIT 1', [lid]);
+  return rows[0] || null;
+}
+
 export async function create({ phone, nome = null, origem = 'whatsapp' }) {
   const { rows } = await query(
     `INSERT INTO leads (phone, nome, origem) VALUES ($1,$2,$3)
@@ -24,7 +31,7 @@ export async function create({ phone, nome = null, origem = 'whatsapp' }) {
 const ALLOWED = new Set([
   'nome', 'email', 'origem', 'stage', 'qual_score', 'tags', 'checkin', 'checkout',
   'guests', 'acomodacao', 'valor_cotado', 'ai_enabled', 'assigned_to', 'extra',
-  'condicoes_pagamento', 'cpf', 'data_nascimento',
+  'condicoes_pagamento', 'cpf', 'data_nascimento', 'lid',
 ]);
 
 export async function update(id, patch) {

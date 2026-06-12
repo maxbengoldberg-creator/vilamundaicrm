@@ -135,6 +135,21 @@ export async function sendManual(req, res, next) {
     res.json({ ok: true });
   } catch (e) { next(e); }
 }
+// Vincula manualmente um LID (@lid) a um lead de telefone real e funde o
+// contato provisório (mensagens passam para a conversa real).
+export async function vincularLid(req, res, next) {
+  try {
+    const lead = await Lead.findById(req.params.id);
+    if (!lead) return res.status(404).json({ error: 'lead não encontrado' });
+    const lid = String(req.body?.lid || '').replace(/\D/g, '');
+    if (!lid) return res.status(400).json({ error: 'lid é obrigatório (só dígitos)' });
+    await Lead.update(lead.id, { lid });
+    const { mergeLidOrphans } = await import('../services/agent.service.js');
+    const r = await mergeLidOrphans({ ...lead, lid }, lid);
+    res.json({ ok: true, lead_id: lead.id, lid, ...r });
+  } catch (e) { next(e); }
+}
+
 // Pausar/retomar a IA num lead (toggle manual da régua/atendimento humano).
 export async function toggleAI(req, res, next) {
   try {

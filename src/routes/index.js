@@ -34,6 +34,7 @@ api.post('/leads', crm.createLead);
 api.get('/leads/:id', crm.getLead);
 api.patch('/leads/:id', crm.updateLead);
 api.patch('/leads/:id/ai', crm.toggleAI);
+api.post('/leads/:id/vincular-lid', crm.vincularLid);
 api.delete('/leads/:id', crm.deleteLead);
 
 // Contrato (gera com docxtpl + LibreOffice, envia via Z-API)

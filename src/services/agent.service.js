@@ -10,6 +10,7 @@ import * as Setting from '../models/setting.model.js';
 import * as Conversation from '../models/conversation.model.js';
 import * as Message from '../models/message.model.js';
 import * as AutomationStage from '../models/automation_stage.model.js';
+import { query } from '../config/db.js';
 
 // O fechamento da venda encadeia até 6 ferramentas numa única resposta do lead
 // (extrair dados, salvar condições, 2x mover funil, criar reserva, escalar).
@@ -71,8 +72,59 @@ function instrucaoOperadorSystem() {
 }
 
 // Mensagem fixa de abertura para leads de anúncio (Meta Ads) na primeira mensagem.
-function aberturaAnuncio() {
-  return `${saudacao()}, eu sou o Max, host da Vila Mundaí, tudo bem? Me conta, já tem datas pra viagem?`;
+// Personalizada com o primeiro nome quando o formulário trouxe.
+function aberturaAnuncio(nome) {
+  const primeiro = (nome || '').trim().split(/\s+/)[0] || '';
+  return `${saudacao()}${primeiro ? ' ' + primeiro : ''}, eu sou o Max, host da Vila Mundaí, tudo bem? Me conta, já tem datas pra viagem?`;
+}
+
+// Extrai nome, e-mail e telefone do texto do formulário de anúncio.
+// Formatos vistos: "Full name: X / Email: Y / Phone number: +55..." e
+// "nome_completo: ... email: ... telefone: ...".
+function parseFormAnuncio(text) {
+  const t = String(text || '');
+  const nome = t.match(/(?:full[\s_]?name|nome(?:_completo)?)\s*:\s*([^\n]+)/i)?.[1]?.trim() || null;
+  const email = t.match(/e-?mail\s*:\s*([^\s\n]+@[^\s\n]+)/i)?.[1]?.trim() || null;
+  const phoneRaw = t.match(/(?:phone[\s_]?number|telefone|whatsapp)\s*:\s*([+\d\s().-]+)/i)?.[1] || null;
+  let phone = phoneRaw ? phoneRaw.replace(/\D/g, '') : null;
+  if (phone && !phone.startsWith('55')) phone = '55' + phone;
+  if (phone && phone.length < 12) phone = null;
+  return { nome, email, phone };
+}
+
+// Funde lead/conversas provisórios criados sob "@lid" no lead REAL, assim que
+// o vínculo lid->telefone é descoberto. Move as mensagens para a conversa real
+// (painel unificado) e apaga o provisório.
+export async function mergeLidOrphans(leadReal, lid) {
+  try {
+    const orphanPhone = `${lid}@lid`;
+    const orphan = await Lead.findByPhone(orphanPhone);
+    const { rows: orphanConvs } = await query(
+      `SELECT id FROM conversations WHERE phone = $1 OR ($2::bigint IS NOT NULL AND lead_id = $2)`,
+      [orphanPhone, orphan ? orphan.id : null]
+    );
+    if (!orphanConvs.length && !orphan) return { merged: false };
+
+    let conv = await Conversation.findOpenByPhone(leadReal.phone);
+    if (!conv) conv = await Conversation.create({ lead_id: leadReal.id, phone: leadReal.phone });
+
+    let movidas = 0;
+    for (const oc of orphanConvs) {
+      if (String(oc.id) === String(conv.id)) continue;
+      const r = await query(`UPDATE messages SET conversation_id = $1 WHERE conversation_id = $2`, [conv.id, oc.id]);
+      movidas += r.rowCount || 0;
+      await query(`DELETE FROM conversations WHERE id = $1`, [oc.id]);
+    }
+    if (orphan && String(orphan.id) !== String(leadReal.id)) {
+      if (!leadReal.nome && orphan.nome) await Lead.update(leadReal.id, { nome: orphan.nome });
+      await query(`DELETE FROM leads WHERE id = $1`, [orphan.id]);
+    }
+    console.log(`[merge] @lid ${lid} fundido no lead ${leadReal.id} (${leadReal.phone}) — ${movidas} mensagens movidas`);
+    return { merged: true, mensagens_movidas: movidas, conversa: conv.id };
+  } catch (e) {
+    console.error('[merge] falhou:', e.message);
+    return { merged: false, erro: e.message };
+  }
 }
 
 // Detecta a mensagem automática de anúncio "Click to WhatsApp" do Meta.
@@ -173,6 +225,19 @@ function toClaudeMessages(rows) {
 export async function handleIncoming({ phone, text, pushName, lid = null, operador = false }) {
   const robotOn = await Setting.get('robot_enabled', true);
 
+  // ANÚNCIO: o formulário traz nome/email/telefone no próprio texto. Usa o
+  // telefone do form como identidade REAL — mesmo quando a mensagem chega
+  // via "@lid" — e aproveita os dados para a ficha e a abertura com nome.
+  let formAds = null;
+  if (!operador && pareceAnuncio(text)) {
+    formAds = parseFormAnuncio(text);
+    if (formAds.phone && String(phone).includes('@')) {
+      if (!lid) lid = String(phone).replace(/\D/g, '') || null;
+      console.log(`[agente] anúncio via @lid: identidade resolvida pelo formulário ${phone} -> ${formAds.phone}`);
+      phone = formAds.phone;
+    }
+  }
+
   // CLIENTE (hóspede confirmado): o handler persiste primeiro e decide depois.
   const cliente = await Cliente.findByPhone(phone);
   if (cliente) {
@@ -186,23 +251,29 @@ export async function handleIncoming({ phone, text, pushName, lid = null, operad
   let lead = await Lead.findByPhone(phone);
   if (!lead) lead = await Lead.create({ phone, nome: pushName || null, origem: 'whatsapp' });
 
-  // Guarda o LID no lead de telefone REAL (não no provisório @lid) para mapear
-  // futuras mensagens que cheguem só com o @lid de volta a este contato.
+  // Guarda o LID no lead de telefone REAL e FUNDE qualquer contato provisório
+  // "@lid" desta mesma pessoa (mensagens passam para a conversa real).
   if (lid && !String(phone).includes('@') && lead.lid !== lid) {
     await Lead.update(lead.id, { lid }).catch(() => {});
     lead.lid = lid;
+    await mergeLidOrphans(lead, lid);
   }
 
   let conv = await Conversation.findOpenByPhone(phone);
   const isFirstMessage = !conv;
   if (!conv) conv = await Conversation.create({ lead_id: lead.id, phone });
 
-  // Anúncio Click-to-WhatsApp: detecta pelo texto automático do formulário.
-  // Roda independente do estado do robô (a origem/campanha não pode se perder).
-  if (!operador && isFirstMessage && lead.origem !== 'meta_ads' && pareceAnuncio(text)) {
-    await Lead.update(lead.id, { origem: 'meta_ads' });
-    lead.origem = 'meta_ads';
-    console.log(`[agente] lead ${phone} detectado como anúncio pelo texto — origem marcada como meta_ads`);
+  // Anúncio: marca origem e salva os dados do formulário na ficha.
+  if (formAds) {
+    const patch = {};
+    if (lead.origem !== 'meta_ads') patch.origem = 'meta_ads';
+    if (formAds.nome && !lead.nome) patch.nome = formAds.nome;
+    if (formAds.email && !lead.email) patch.email = formAds.email;
+    if (Object.keys(patch).length) {
+      await Lead.update(lead.id, patch).catch(() => {});
+      Object.assign(lead, patch);
+    }
+    console.log(`[agente] lead ${phone} anúncio — ficha: nome=${lead.nome || '-'} email=${lead.email || '-'}`);
   }
 
   // A ordem do operador NÃO é gravada como mensagem do lead (não polui o painel
@@ -233,7 +304,7 @@ export async function handleIncoming({ phone, text, pushName, lid = null, operad
   // sem chamar o Claude. A mensagem do lead é o texto automático do formulário.
   if (!operador && isFirstMessage && lead.origem === 'meta_ads') {
     await delay(10000);
-    const abertura = aberturaAnuncio();
+    const abertura = aberturaAnuncio(lead.nome);
     await zapi.sendText(phone, abertura);
     await Message.create({ conversation_id: conv.id, role: 'assistant', content: abertura, raw: { role: 'assistant', content: abertura }, sender: 'ia' });
     await Conversation.touch(conv.id, abertura);

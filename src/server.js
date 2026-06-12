@@ -94,6 +94,11 @@ app.listen(env.port, () => {
       status     TEXT DEFAULT 'novo',      -- novo | aprovado | descartado
       created_at TIMESTAMPTZ DEFAULT now()
     )`),
+    // Ator-lead: perfil (transcript de conversa real) que a IA-lead imita.
+    query(`ALTER TABLE simulacoes ADD COLUMN IF NOT EXISTS perfil JSONB`),
+    // Insights aplicáveis: etapa alvo e origem (qual simulação gerou).
+    query(`ALTER TABLE insights ADD COLUMN IF NOT EXISTS etapa TEXT`),
+    query(`ALTER TABLE insights ADD COLUMN IF NOT EXISTS origem TEXT`),
     // Intervenções do Gerente Ativo (Camada 3).
     query(`CREATE TABLE IF NOT EXISTS intervencoes (
       id              BIGSERIAL PRIMARY KEY,

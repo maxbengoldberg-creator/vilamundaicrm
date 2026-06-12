@@ -224,6 +224,30 @@ Responda APENAS JSON válido:
  "pontos_fortes": ["..."],
  "sugestoes": [{"etapa": "qualif|apres|quente|negociacao|contrato|pagamento|ganho|morno|geral", "problema": "...", "ajuste_sugerido": "texto pronto para adicionar/alterar no prompt da etapa"}]}`;
 
+// ===== Ator-lead (Fase 1.5): IA interpreta o lead na simulação =====
+// Se a sessão tem `perfil` (transcript de uma conversa real importada do
+// Atendimentos), o ator imita aquele lead; senão usa um perfil genérico.
+export async function gerarFalaLead(sim) {
+  const transcript = sim.transcript || [];
+  const perfil = sim.perfil || null;
+  const historico = transcript.map(t => `${t.role === 'lead' ? 'LEAD' : 'ATENDENTE'}: ${t.text}`).join('\n');
+  const ref = perfil?.transcript
+    ? `\n\nLEAD REAL DE REFERÊNCIA (imite o estilo, ritmo, intenções e objeções desta pessoa — transcript de uma conversa verdadeira):\n${perfil.transcript.slice(0, 6000)}`
+    : '';
+  const system = `Você interpreta um LEAD brasileiro falando por WhatsApp com o atendente da Vila Mundaí (hospedagem em Porto Seguro).
+${perfil ? 'Imite o lead real de referência abaixo: mesmo jeito de escrever, mesmas dúvidas e objeções, mesmo nível de interesse.' : 'Perfil: turista comum pesquisando hospedagem para a família. Faça perguntas naturais, levante objeções realistas (preço, localização, pet, crianças), decida com base nas respostas.'}
+Regras: escreva COMO LEAD — curto, informal, estilo WhatsApp, uma mensagem por vez, às vezes com erros de digitação leves. Nunca revele que é IA. Avance a conversa naturalmente (não fique repetindo). Se a conversa chegou a um desfecho (pré-reserva criada, lead desistiu, ou nada mais a tratar), responda exatamente: [FIM]${ref}`;
+
+  const resp = await anthropic.messages.create({
+    model: 'claude-haiku-4-5',
+    max_tokens: 200,
+    system,
+    messages: [{ role: 'user', content: `CONVERSA ATÉ AGORA:\n${historico || '(ainda não começou — abra a conversa como o lead abriria)'}\n\nEscreva a PRÓXIMA mensagem do lead:` }],
+  });
+  const text = resp.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
+  return text;
+}
+
 export async function avaliarSimulacao(sim) {
   const transcript = sim.transcript || [];
   if (transcript.length < 2) return { ok: false, erro: 'simulação muito curta para avaliar' };

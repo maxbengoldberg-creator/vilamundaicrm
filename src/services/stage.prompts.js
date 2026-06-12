@@ -57,7 +57,7 @@ function estadoLead(lead) {
 // Regra fixa de preço, anexada a TODAS as etapas (no código, para nenhuma
 // edição de prompt no banco perder essa proteção). O preço vem do PMS e
 // varia por nº de hóspedes e por datas.
-const REGRA_PRECO = `
+export const REGRA_PRECO = `
 
 REGRAS GERAIS (governam COMO fazer cada coisa, mas SEMPRE respeitando a ordem do funil — nunca atropele as etapas):
 

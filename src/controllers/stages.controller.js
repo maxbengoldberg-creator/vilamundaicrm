@@ -1,5 +1,12 @@
 import * as AutomationStage from '../models/automation_stage.model.js';
-import { invalidatePromptCache } from '../services/stage.prompts.js';
+import { invalidatePromptCache, REGRA_PRECO } from '../services/stage.prompts.js';
+
+// Regras globais que vivem NO CÓDIGO e são anexadas a todas as etapas.
+// Expostas em modo leitura para o operador saber o prompt completo que
+// o agente recebe (editar exige mudança de código — decisão do CEO).
+export async function regrasGlobais(req, res) {
+  res.json({ texto: REGRA_PRECO.trim(), editavel: false, onde: 'src/services/stage.prompts.js (REGRA_PRECO)' });
+}
 
 export async function listStages(req, res, next) {
   try {

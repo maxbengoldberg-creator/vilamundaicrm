@@ -58,13 +58,21 @@ api.get('/automations/stages/:stage/revisions', stages.listRevisions);
 api.get('/automations/revisions/:id', stages.getRevision);
 api.post('/automations/stages/:stage/revisions/:id/restore', stages.restoreRevision);
 
+// Regras globais do agente (código, leitura)
+api.get('/automations/regras-globais', stages.regrasGlobais);
+
 // Gerente Max — Simulador (sandbox: não toca WhatsApp, PMS nem leads reais)
 api.post('/gerente/simulacoes', gerente.criarSimulacao);
 api.get('/gerente/simulacoes', gerente.listarSimulacoes);
 api.get('/gerente/simulacoes/:id', gerente.obterSimulacao);
 api.delete('/gerente/simulacoes/:id', gerente.apagarSimulacao);
 api.post('/gerente/simulacoes/:id/mensagem', gerente.mensagemSimulacao);
+api.post('/gerente/simulacoes/:id/lead-ia', gerente.cicloIaLead);
 api.post('/gerente/simulacoes/:id/avaliar', gerente.avaliar);
+// Sugestões do Gerente Max (aplicáveis como rascunho na aba Fluxos)
+api.get('/gerente/insights', gerente.listarInsights);
+api.post('/gerente/insights/:id/aplicar', gerente.aplicarInsight);
+api.post('/gerente/insights/:id/descartar', gerente.descartarInsight);
 
 // Automações — builder genérico (legado)
 api.get('/automations', crm.listAutomations);

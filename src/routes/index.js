@@ -5,6 +5,7 @@ import { runAgent, generateAutomation } from '../controllers/agent.controller.js
 import * as crm from '../controllers/crm.controller.js';
 import * as clientes from '../controllers/clientes.controller.js';
 import * as stages from '../controllers/stages.controller.js';
+import * as gerente from '../controllers/gerente.controller.js';
 import * as fotos from '../controllers/fotos.controller.js';
 import * as contrato from '../controllers/contrato.controller.js';
 
@@ -50,6 +51,20 @@ api.post('/conversations/:id/resumo', crm.resumoConversa);
 // Automações — prompts por etapa (deve vir antes de /automations/:id)
 api.get('/automations/stages', stages.listStages);
 api.patch('/automations/stages/:stage', stages.updateStage);
+// Rascunho (draft) + histórico de versões de prompt
+api.patch('/automations/stages/:stage/draft', stages.saveDraft);
+api.post('/automations/stages/:stage/draft/promover', stages.promoteDraft);
+api.get('/automations/stages/:stage/revisions', stages.listRevisions);
+api.get('/automations/revisions/:id', stages.getRevision);
+api.post('/automations/stages/:stage/revisions/:id/restore', stages.restoreRevision);
+
+// Gerente Max — Simulador (sandbox: não toca WhatsApp, PMS nem leads reais)
+api.post('/gerente/simulacoes', gerente.criarSimulacao);
+api.get('/gerente/simulacoes', gerente.listarSimulacoes);
+api.get('/gerente/simulacoes/:id', gerente.obterSimulacao);
+api.delete('/gerente/simulacoes/:id', gerente.apagarSimulacao);
+api.post('/gerente/simulacoes/:id/mensagem', gerente.mensagemSimulacao);
+api.post('/gerente/simulacoes/:id/avaliar', gerente.avaliar);
 
 // Automações — builder genérico (legado)
 api.get('/automations', crm.listAutomations);

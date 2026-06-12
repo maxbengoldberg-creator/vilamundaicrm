@@ -230,6 +230,55 @@ export async function update(stage, patch) {
   return rows[0] || null;
 }
 
+// ─── RASCUNHO (draft) E REVISÕES ────────────────────────────────────────────
+// O Simulador testa o draft; produção continua usando prompt_body. Toda
+// alteração de prompt_body guarda a versão anterior em prompt_revisions.
+
+export async function saveRevision(stage, prompt_body, origem = 'edicao') {
+  if (!prompt_body) return;
+  await query(
+    `INSERT INTO prompt_revisions (stage, prompt_body, origem) VALUES ($1, $2, $3)`,
+    [stage, prompt_body, origem]
+  );
+}
+
+export async function listRevisions(stage, limit = 20) {
+  const { rows } = await query(
+    `SELECT id, stage, origem, created_at, left(prompt_body, 200) AS preview
+       FROM prompt_revisions WHERE stage = $1 ORDER BY id DESC LIMIT $2`,
+    [stage, limit]
+  );
+  return rows;
+}
+
+export async function getRevision(id) {
+  const { rows } = await query(`SELECT * FROM prompt_revisions WHERE id = $1`, [id]);
+  return rows[0] || null;
+}
+
+export async function saveDraft(stage, prompt_draft) {
+  const { rows } = await query(
+    `UPDATE automations_stages SET prompt_draft = $2, updated_at = now()
+      WHERE stage = $1 RETURNING stage, prompt_draft`,
+    [stage, prompt_draft]
+  );
+  return rows[0] || null;
+}
+
+// Promove o rascunho a produção, guardando a versão de produção anterior.
+export async function promoteDraft(stage) {
+  const atual = await getByStage(stage);
+  if (!atual || !atual.prompt_draft) return null;
+  await saveRevision(stage, atual.prompt_body, 'promocao_draft');
+  const { rows } = await query(
+    `UPDATE automations_stages
+        SET prompt_body = prompt_draft, prompt_draft = NULL, updated_at = now()
+      WHERE stage = $1 RETURNING *`,
+    [stage]
+  );
+  return rows[0] || null;
+}
+
 // ─── SEED ────────────────────────────────────────────────────────────────────
 
 export async function seedIfEmpty() {

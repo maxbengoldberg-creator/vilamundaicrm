@@ -61,6 +61,49 @@ app.listen(env.port, () => {
     // telefone real, para a mesma pessoa não virar dois contatos.
     query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS lid TEXT`),
     query(`CREATE INDEX IF NOT EXISTS idx_leads_lid ON leads(lid)`),
+    // ===== BASE DE APRENDIZADO (Gerente Max) =====
+    // Rascunho de prompt por etapa: o Simulador testa o draft sem tocar produção.
+    query(`ALTER TABLE automations_stages ADD COLUMN IF NOT EXISTS prompt_draft TEXT`),
+    // Histórico de versões de prompt (auto-backup a cada alteração).
+    query(`CREATE TABLE IF NOT EXISTS prompt_revisions (
+      id          BIGSERIAL PRIMARY KEY,
+      stage       TEXT NOT NULL,
+      prompt_body TEXT NOT NULL,
+      origem      TEXT DEFAULT 'edicao',   -- edicao | promocao_draft | restauracao
+      created_at  TIMESTAMPTZ DEFAULT now()
+    )`),
+    // Sessões do Simulador (sandbox): lead virtual + histórico + relatório.
+    query(`CREATE TABLE IF NOT EXISTS simulacoes (
+      id          BIGSERIAL PRIMARY KEY,
+      nome        TEXT,
+      usar_draft  BOOLEAN DEFAULT FALSE,
+      lead_json   JSONB DEFAULT '{}',      -- lead virtual (stage, datas, tags...)
+      messages_json JSONB DEFAULT '[]',    -- histórico formato Claude (com tool_use)
+      transcript  JSONB DEFAULT '[]',      -- visão humana (lead/agente/tools/etapa)
+      relatorio   JSONB,                   -- saída do avaliador
+      status      TEXT DEFAULT 'ativa',    -- ativa | avaliada | arquivada
+      created_at  TIMESTAMPTZ DEFAULT now(),
+      updated_at  TIMESTAMPTZ DEFAULT now()
+    )`),
+    // Insights do Analisador Passivo (Camada 2).
+    query(`CREATE TABLE IF NOT EXISTS insights (
+      id         BIGSERIAL PRIMARY KEY,
+      padrao     TEXT,
+      evidencia  TEXT,
+      sugestao   TEXT,
+      status     TEXT DEFAULT 'novo',      -- novo | aprovado | descartado
+      created_at TIMESTAMPTZ DEFAULT now()
+    )`),
+    // Intervenções do Gerente Ativo (Camada 3).
+    query(`CREATE TABLE IF NOT EXISTS intervencoes (
+      id              BIGSERIAL PRIMARY KEY,
+      conversation_id BIGINT,
+      detectado       TEXT,
+      sugerido        TEXT,
+      aprovado        BOOLEAN,
+      resultado       TEXT,
+      created_at      TIMESTAMPTZ DEFAULT now()
+    )`),
   ]).catch(err => console.error('[server] migrate falhou:', err.message));
 
   // Job de morno DESATIVADO por ora: morno é só um estágio passivo de

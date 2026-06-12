@@ -80,10 +80,13 @@ DADOS PESSOAIS: o primeiro nome é pego naturalmente na qualificação. Os dados
 
 NÃO REPETIR: não reofereça nem refaça o que já foi feito (ver "JÁ ACONTECEU"). Orçamento já dado: não ofereça consultar de novo. Fotos já enviadas: não ofereça de novo. Siga em frente rumo ao fechamento.`;
 
-export async function buildStagePrompt(lead) {
+// opts.draft=true: usa o rascunho da etapa quando existir (modo Simulador) —
+// permite testar um ajuste de prompt sem tocar no que roda em produção.
+export async function buildStagePrompt(lead, opts = {}) {
   const map = await getStageMap();
   const entry = map[lead.stage] || map['qualif'] || {};
-  return interpolate(entry.prompt_body || '', lead) + REGRA_PRECO + estadoLead(lead);
+  const body = (opts.draft && entry.prompt_draft) ? entry.prompt_draft : (entry.prompt_body || '');
+  return interpolate(body, lead) + REGRA_PRECO + estadoLead(lead);
 }
 
 export async function getStageModel(stage) {

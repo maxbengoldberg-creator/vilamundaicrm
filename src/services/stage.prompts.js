@@ -4,10 +4,23 @@
 //   {{condicoes_pagamento}} (JSON das condições acordadas na negociação)
 
 import * as AutomationStage from '../models/automation_stage.model.js';
+import { query } from '../config/db.js';
 
 const CACHE_TTL = 60_000;
 let _cache = null; // { [stage]: stageRow }
 let _cacheTs = 0;
+
+// C3 (regras de condução) publicada no Laboratório: lida do banco com cache;
+// se não existir lá, usa a constante REGRA_PRECO do código (fallback seguro).
+let _c3 = { val: undefined, ts: 0 };
+async function getC3Publicada() {
+  if (_c3.val !== undefined && Date.now() - _c3.ts < CACHE_TTL) return _c3.val;
+  try {
+    const { rows } = await query(`SELECT conteudo FROM lab_camadas WHERE chave = 'c3_regras'`);
+    _c3 = { val: rows[0]?.conteudo?.trim() || null, ts: Date.now() };
+  } catch { _c3 = { val: null, ts: Date.now() }; }
+  return _c3.val;
+}
 
 async function getStageMap() {
   if (_cache && Date.now() - _cacheTs < CACHE_TTL) return _cache;
@@ -88,7 +101,9 @@ export async function buildStagePrompt(lead, opts = {}) {
   const map = await getStageMap();
   const entry = map[lead.stage] || map['qualif'] || {};
   const body = (opts.draft && entry.prompt_draft) ? entry.prompt_draft : (entry.prompt_body || '');
-  return interpolate(body, lead) + REGRA_PRECO + estadoLead(lead);
+  const c3 = await getC3Publicada();
+  const regras = c3 ? `\n\n${c3}` : REGRA_PRECO;
+  return interpolate(body, lead) + regras + estadoLead(lead);
 }
 
 export async function getStageModel(stage) {
@@ -99,4 +114,5 @@ export async function getStageModel(stage) {
 // Invalida o cache imediatamente (chamado após PATCH de um prompt).
 export function invalidatePromptCache() {
   _cacheTs = 0;
+  _c3 = { val: undefined, ts: 0 };
 }

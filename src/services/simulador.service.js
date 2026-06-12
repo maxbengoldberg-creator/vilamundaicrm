@@ -225,24 +225,54 @@ Responda APENAS JSON válido:
  "sugestoes": [{"etapa": "qualif|apres|quente|negociacao|contrato|pagamento|ganho|morno|geral", "problema": "...", "ajuste_sugerido": "texto pronto para adicionar/alterar no prompt da etapa"}]}`;
 
 // ===== Ator-lead (Fase 1.5): IA interpreta o lead na simulação =====
-// Se a sessão tem `perfil` (transcript de uma conversa real importada do
-// Atendimentos), o ator imita aquele lead; senão usa um perfil genérico.
+// Lead REAL é curto, objetivo e imprevisível — o ator imita isso.
+// Se a sessão tem `perfil` (transcript de conversa real importada do
+// Atendimentos), o ator imita aquele lead; senão usa uma personalidade.
+
+export const PERSONALIDADES = {
+  apressado: 'APRESSADO: só quer saber o preço, logo. Mensagens de 2 a 6 palavras ("qnt fica?", "tem vaga?", "manda o valor"). Ignora apresentações e enrolação, cobra objetividade ("só me fala o preço"). Se demorarem a dar valor, fica impaciente.',
+  desconfiado: 'DESCONFIADO: questiona tudo ("isso é golpe?", "tem CNPJ?", "posso ver avaliação?", "como sei que existe?"). Pede provas, fotos reais, endereço. Demora a confiar, mas fecha se convencido.',
+  economico: 'ECONÔMICO: acha tudo caro ("nossa, tá salgado", "tem desconto?", "e se eu pagar à vista?", "vi mais barato ali"). Pechinchador, compara com outros lugares, pergunta o que está incluso para justificar o preço.',
+  vago: 'VAGO: não sabe direito o que quer ("queria ver aí pra família", "algo pra umas férias"). Não tem datas fechadas, responde pela metade, muda de ideia, às vezes some do assunto e pergunta outra coisa.',
+  decidido: 'DECIDIDO: já pesquisou, sabe as datas e quantas pessoas, quer resolver rápido. Responde na lata, pede o passo a passo para fechar, não enrola.',
+};
+
+export function sortearPersonalidade() {
+  const keys = Object.keys(PERSONALIDADES);
+  return keys[Math.floor(Math.random() * keys.length)];
+}
+
 export async function gerarFalaLead(sim) {
   const transcript = sim.transcript || [];
   const perfil = sim.perfil || null;
   const historico = transcript.map(t => `${t.role === 'lead' ? 'LEAD' : 'ATENDENTE'}: ${t.text}`).join('\n');
-  const ref = perfil?.transcript
-    ? `\n\nLEAD REAL DE REFERÊNCIA (imite o estilo, ritmo, intenções e objeções desta pessoa — transcript de uma conversa verdadeira):\n${perfil.transcript.slice(0, 6000)}`
-    : '';
-  const system = `Você interpreta um LEAD brasileiro falando por WhatsApp com o atendente da Vila Mundaí (hospedagem em Porto Seguro).
-${perfil ? 'Imite o lead real de referência abaixo: mesmo jeito de escrever, mesmas dúvidas e objeções, mesmo nível de interesse.' : 'Perfil: turista comum pesquisando hospedagem para a família. Faça perguntas naturais, levante objeções realistas (preço, localização, pet, crianças), decida com base nas respostas.'}
-Regras: escreva COMO LEAD — curto, informal, estilo WhatsApp, uma mensagem por vez, às vezes com erros de digitação leves. Nunca revele que é IA. Avance a conversa naturalmente (não fique repetindo). Se a conversa chegou a um desfecho (pré-reserva criada, lead desistiu, ou nada mais a tratar), responda exatamente: [FIM]${ref}`;
+
+  let quem;
+  if (perfil?.transcript) {
+    quem = `Imite o LEAD REAL de referência abaixo: mesmo jeito de escrever, mesmo ritmo, mesmas dúvidas, objeções e nível de interesse. Transcript verdadeiro:\n${perfil.transcript.slice(0, 6000)}`;
+  } else {
+    const p = PERSONALIDADES[perfil?.personalidade] || PERSONALIDADES[sortearPersonalidade()];
+    quem = `Personalidade deste lead — ${p}`;
+  }
+
+  const system = `Você interpreta um LEAD brasileiro de WhatsApp falando com o atendente da Vila Mundaí (hospedagem em Porto Seguro). Você NÃO é um assistente: é um cliente comum, com pressa e vida própria.
+
+${quem}
+
+COMO LEAD REAL ESCREVE (siga à risca):
+- CURTO: a maioria das mensagens tem 2 a 8 palavras. Nunca escreva parágrafos.
+- Informal: abreviações (vc, pq, qnt, blz, obg), pontuação largada, inicial minúscula às vezes, um erro de digitação ocasional (ex: "pessas", "quato").
+- IMPREVISÍVEL: às vezes ignora a pergunta do atendente e pergunta outra coisa; muda de assunto sem avisar; responde só metade do que foi perguntado; de vez em quando manda duas mensagens curtas em vez de uma (separe com quebra de linha).
+- Pergunta preço cedo e mais de uma vez se não responderem.
+- Não agradece toda hora, não elogia o atendimento, não puxa assunto à toa.
+- Nunca revele que é IA. Nunca use linguagem de assistente ("Claro!", "Com certeza!").
+- Se a conversa chegou a um desfecho real (pré-reserva criada, desistiu, ou nada mais a tratar), responda exatamente: [FIM]`;
 
   const resp = await anthropic.messages.create({
     model: 'claude-haiku-4-5',
-    max_tokens: 200,
+    max_tokens: 150,
     system,
-    messages: [{ role: 'user', content: `CONVERSA ATÉ AGORA:\n${historico || '(ainda não começou — abra a conversa como o lead abriria)'}\n\nEscreva a PRÓXIMA mensagem do lead:` }],
+    messages: [{ role: 'user', content: `CONVERSA ATÉ AGORA:\n${historico || '(ainda não começou — abra a conversa como esse lead abriria, do jeito dele)'}\n\nPRÓXIMA mensagem do lead:` }],
   });
   const text = resp.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
   return text;

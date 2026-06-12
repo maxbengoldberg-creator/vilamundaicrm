@@ -405,6 +405,7 @@ const NAV=[
   {id:'automations',ic:'ti-git-fork',nm:'Fluxos'},
   {id:'chat',ic:'ti-message-circle',nm:'Atendimentos'},
   {id:'gerente',ic:'ti-brain',nm:'Gerente'},
+  {id:'lab',ic:'ti-test-pipe',nm:'Laboratório'},
   {id:'agente',ic:'ti-sparkles',nm:'Agente'},
 ];
 const NAV2=[
@@ -419,7 +420,7 @@ async function go(v){stopChatPoll();S.view=v;renderRail();document.getElementByI
    RENDER ROUTER
    ============================================================ */
 async function renderMain(){
-  const fn={dashboard:vDashboard,pipelines:vPipelines,leads:vLeads,clientes:vClientes,automations:vAutomations,chat:vChat,gerente:vGerente,agente:vAgente,config:vConfig}[S.view];
+  const fn={dashboard:vDashboard,pipelines:vPipelines,leads:vLeads,clientes:vClientes,automations:vAutomations,chat:vChat,gerente:vGerente,lab:vLab,agente:vAgente,config:vConfig}[S.view];
   if(fn)await fn();
 }
 
@@ -1217,6 +1218,130 @@ async function pollChat(){
 }
 
 /* ============================================================
+   LABORATÓRIO — camadas do comportamento do Atendente Max
+   C1-C4 editáveis | C5-C6 visores | compositor -> rascunhos
+   ============================================================ */
+const C4_LABEL=s=>COLS.find(c=>c.id===s)?.nome||s;
+async function vLab(){
+  const lab=await GET('/api/v1/lab').catch(()=>null);
+  S.lab=lab;
+  const main=document.getElementById('main');
+  if(!lab){main.innerHTML='<div class="view active"><div class="pad">Erro ao carregar o Laboratório.</div></div>';return}
+  if(!lab.seeded){
+    main.innerHTML=`<div class="view active"><div class="head"><div><h1>Laboratório</h1><div class="sub">Desenho do comportamento do Atendente Max em camadas</div></div></div>
+    <div class="pad"><div class="card cpad" style="max-width:640px">
+      <h2 style="font-size:16px;margin-bottom:8px"><i class="ti ti-test-pipe" style="color:var(--teal)"></i> Primeira vez aqui</h2>
+      <p style="font-size:12.5px;color:var(--txt-2);line-height:1.7;margin-bottom:14px">O Laboratório vai <b>extrair literalmente</b> o conteúdo dos seus 8 prompts de produção e organizá-lo em camadas (identidade/tom, fatos, regras, etapas). <b>Nada é alterado em produção</b> — a aba Fluxos e o agente continuam exatamente como estão.</p>
+      <button class="btn blue" onclick="labSeed()"><i class="ti ti-dna"></i> Extrair camadas dos prompts atuais</button>
+    </div></div></div>`;
+    return;
+  }
+  const stages=Object.keys(lab.c4||{});
+  if(!S.labC4Sel||!stages.includes(S.labC4Sel))S.labC4Sel=stages[0]||'qualif';
+  const c3Status=lab.c3_publicada
+    ?`<span class="tag green dot">publicada do Laboratório</span>`
+    :`<span class="tag amber dot">produção usa a versão do código</span>`;
+  main.innerHTML=`<div class="view active">
+  <div class="head"><div><h1>Laboratório</h1><div class="sub">Camadas do comportamento — edite, componha, teste no simulador e só então promova</div></div>
+    <div class="right"><button class="btn blue" onclick="labCompor()"><i class="ti ti-stack-2"></i> Compor & comparar</button></div></div>
+  <div class="pad">
+    <div class="card cpad" style="margin-bottom:14px">
+      <h2 style="font-size:15px;margin-bottom:6px">C1 — Identidade & Tom <span class="tag gray" style="font-size:9.5px">editável · vale para todas as etapas</span></h2>
+      <textarea id="labC1" style="width:100%;height:180px;resize:vertical;font-family:monospace;font-size:12px;line-height:1.55;background:var(--bg-2);border:1px solid var(--line-2);border-radius:9px;color:var(--txt);padding:10px 12px">${escHtml(lab.c1?.conteudo||'')}</textarea>
+      <div style="margin-top:8px"><button class="btn blue-s" onclick="labSalvar('c1_identidade','labC1')"><i class="ti ti-device-floppy"></i> Salvar C1</button></div>
+    </div>
+    <div class="card cpad" style="margin-bottom:14px">
+      <h2 style="font-size:15px;margin-bottom:6px">C2 — Fatos da Vila <span class="tag gray" style="font-size:9.5px">editável · fonte única dos fatos</span></h2>
+      <textarea id="labC2" style="width:100%;height:200px;resize:vertical;font-family:monospace;font-size:12px;line-height:1.55;background:var(--bg-2);border:1px solid var(--line-2);border-radius:9px;color:var(--txt);padding:10px 12px">${escHtml(lab.c2?.conteudo||'')}</textarea>
+      <div style="margin-top:8px"><button class="btn blue-s" onclick="labSalvar('c2_fatos','labC2')"><i class="ti ti-device-floppy"></i> Salvar C2</button></div>
+    </div>
+    <div class="card cpad" style="margin-bottom:14px">
+      <h2 style="font-size:15px;margin-bottom:6px">C3 — Regras de condução <span class="tag gray" style="font-size:9.5px">editável · anexada pelo motor a TODAS as etapas</span> ${c3Status}</h2>
+      <p style="font-size:11px;color:var(--txt-3);margin-bottom:8px">Você edita o rascunho. "Publicar" troca a versão que o agente usa em produção (a anterior vai para o histórico). Enquanto nada for publicado, vale a versão do código.</p>
+      <textarea id="labC3" style="width:100%;height:220px;resize:vertical;font-family:monospace;font-size:12px;line-height:1.55;background:var(--bg-2);border:1px solid var(--line-2);border-radius:9px;color:var(--txt);padding:10px 12px">${escHtml(lab.c3_draft?.conteudo||lab.c3_codigo||'')}</textarea>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button class="btn blue-s" onclick="labSalvar('c3_regras_draft','labC3')"><i class="ti ti-device-floppy"></i> Salvar rascunho C3</button>
+        <button class="btn ghost" style="color:var(--amber);border-color:rgba(251,191,36,.4)" onclick="labPublicarC3()"><i class="ti ti-rocket"></i> Publicar C3 em produção</button>
+      </div>
+    </div>
+    <div class="card cpad" style="margin-bottom:14px">
+      <h2 style="font-size:15px;margin-bottom:6px">C4 — Etapas do funil <span class="tag gray" style="font-size:9.5px">editável · missão + fluxo condicional de cada etapa</span></h2>
+      <select onchange="S.labC4Sel=this.value;vLab()" style="height:34px;background:var(--surf);border:1px solid var(--line-2);border-radius:8px;color:var(--txt);padding:0 10px;font-size:12.5px;margin-bottom:8px">
+        ${stages.map(s=>`<option value="${s}" ${s===S.labC4Sel?'selected':''}>${C4_LABEL(s)} ${lab.c4[s]?'':'(vazia)'}</option>`).join('')}
+      </select>
+      <textarea id="labC4" style="width:100%;height:320px;resize:vertical;font-family:monospace;font-size:12px;line-height:1.55;background:var(--bg-2);border:1px solid var(--line-2);border-radius:9px;color:var(--txt);padding:10px 12px">${escHtml(lab.c4[S.labC4Sel]?.conteudo||'')}</textarea>
+      <div style="margin-top:8px"><button class="btn blue-s" onclick="labSalvar('c4_${S.labC4Sel}','labC4')"><i class="ti ti-device-floppy"></i> Salvar C4 — ${C4_LABEL(S.labC4Sel)}</button></div>
+    </div>
+    <div class="g2" style="margin-bottom:14px">
+      <div class="card cpad">
+        <h2 style="font-size:14px;margin-bottom:6px">C5 — Ficha & Leitura do lead <span class="tag gray" style="font-size:9.5px">visor · montada em tempo real</span></h2>
+        <div style="font-size:11.5px;color:var(--txt-2);line-height:1.65;background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-family:monospace">LEAD: {{nome}} | checkin: {{checkin}} | checkout: {{checkout}} | hóspedes: {{guests}}</div>
+        <p style="font-size:10.5px;color:var(--txt-3);margin-top:7px">Dados reais do lead injetados a cada turno pelos placeholders. A leitura estruturada (perfil, temperatura, objeções) entra aqui na próxima etapa do plano.</p>
+      </div>
+      <div class="card cpad">
+        <h2 style="font-size:14px;margin-bottom:6px">C6 — Estado da conversa <span class="tag gray" style="font-size:9.5px">visor · gerado por tags</span></h2>
+        <div style="font-size:11.5px;color:var(--txt-2);line-height:1.65;background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-family:monospace">JÁ ACONTECEU NESTA CONVERSA (nunca repita nem pergunte de novo):
+- As fotos do apartamento de 1 quarto JÁ foram enviadas...
+- O orçamento JÁ foi apresentado...</div>
+        <p style="font-size:10.5px;color:var(--txt-3);margin-top:7px">Gerado automaticamente pelas tags do lead (fotos, orçamento, endereço). Não é editável — é o sistema registrando o que já aconteceu.</p>
+      </div>
+    </div>
+    <div id="labComp"></div>
+  </div></div>`;
+}
+async function labSeed(){
+  toast('Extraindo camadas dos prompts atuais…');
+  const r=await POST('/api/v1/lab/seed',{}).catch(e=>{toast(e.message,false);return null});
+  if(!r)return;
+  toast('Camadas extraídas — produção intocada');
+  await vLab();
+}
+async function labSalvar(chave,elId){
+  const conteudo=document.getElementById(elId)?.value;
+  try{
+    await PATCH('/api/v1/lab/camada',{chave,conteudo});
+    toast('Camada salva (só afeta composições futuras)');
+  }catch(e){toast('Erro: '+e.message,false)}
+}
+async function labPublicarC3(){
+  if(!confirm('Publicar a C3 (regras de condução) em PRODUÇÃO?\n\nO agente passa a usar este texto em TODAS as etapas em até 60s. A versão anterior vai para o histórico.'))return;
+  try{
+    await labSalvar('c3_regras_draft','labC3');
+    await POST('/api/v1/lab/c3/publicar',{});
+    toast('C3 publicada — agente atualiza em até 60s');
+    await vLab();
+  }catch(e){toast('Erro: '+e.message,false)}
+}
+async function labCompor(){
+  const blk=document.getElementById('labComp');
+  if(blk)blk.innerHTML='<div class="card cpad">Compondo…</div>';
+  const comps=await GET('/api/v1/lab/compor').catch(()=>[]);
+  if(!blk)return;
+  blk.innerHTML=`<div class="card cpad">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <h2 style="font-size:15px;flex:1">Composição × Produção atual</h2>
+      <button class="btn blue" onclick="labEnviarRascunhos()"><i class="ti ti-flask"></i> Enviar tudo para RASCUNHOS das etapas</button>
+    </div>
+    <p style="font-size:11px;color:var(--txt-3);margin-bottom:10px">A composição = C1 + C2 + dados do lead + C4 da etapa (a C3 e o estado são anexados pelo motor em tempo real, como hoje). Enviar para rascunhos NÃO muda produção: teste no Gerente com "usar rascunhos" e promova etapa por etapa na aba Fluxos.</p>
+    ${comps.map(c=>`<details style="margin-bottom:8px;background:var(--bg-2);border:1px solid var(--line);border-radius:9px;padding:8px 12px">
+      <summary style="cursor:pointer;font-size:13px;font-weight:700;color:#fff">${C4_LABEL(c.stage)} <span style="font-weight:400;color:var(--txt-3);font-size:11px">composto ${c.composto.length} chars · produção ${c.producao.length} chars</span></summary>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+        <div><b style="font-size:10.5px;color:var(--teal)">COMPOSIÇÃO (nova)</b><pre style="white-space:pre-wrap;font-size:10.5px;line-height:1.5;color:var(--txt-2);max-height:300px;overflow:auto;background:var(--surf);border-radius:7px;padding:9px;margin-top:4px">${escHtml(c.composto)}</pre></div>
+        <div><b style="font-size:10.5px;color:var(--txt-3)">PRODUÇÃO (atual)</b><pre style="white-space:pre-wrap;font-size:10.5px;line-height:1.5;color:var(--txt-3);max-height:300px;overflow:auto;background:var(--surf);border-radius:7px;padding:9px;margin-top:4px">${escHtml(c.producao)}</pre></div>
+      </div>
+    </details>`).join('')}
+  </div>`;
+  blk.scrollIntoView({behavior:'smooth'});
+}
+async function labEnviarRascunhos(){
+  if(!confirm('Enviar as 8 composições para os RASCUNHOS das etapas?\n\nProdução continua intocada. Depois: Gerente -> nova simulação com "usar rascunhos" -> compare -> promova na aba Fluxos.'))return;
+  try{
+    const r=await POST('/api/v1/lab/enviar-rascunhos',{});
+    toast(`Rascunhos criados: ${(r.enviados||[]).join(', ')}`);
+  }catch(e){toast('Erro: '+e.message,false)}
+}
+
+/* ============================================================
    GERENTE MAX — Simulador (sandbox: nada toca WhatsApp/PMS/leads reais)
    ============================================================ */
 async function vGerente(){
@@ -1231,6 +1356,14 @@ async function vGerente(){
           <div style="flex:1"><b style="font-size:12.5px;color:#fff;display:block">Gerente Max</b><span style="font-size:10.5px;color:var(--txt-2)">Simulador — ambiente de teste</span></div>
         </div>
         <input id="simNome" placeholder="Nome da simulação (opcional)" style="width:100%;height:34px;background:var(--surf);border:1px solid var(--line-2);border-radius:8px;color:var(--txt);padding:0 10px;font-size:12px;font-family:inherit;margin-bottom:7px">
+        <select id="simPers" title="Personalidade do lead simulado (modo IA lead/Auto)" style="width:100%;height:34px;background:var(--surf);border:1px solid var(--line-2);border-radius:8px;color:var(--txt);padding:0 9px;font-size:12px;font-family:inherit;margin-bottom:7px">
+          <option value="">Lead: personalidade aleatória</option>
+          <option value="apressado">Lead apressado (só quer preço)</option>
+          <option value="desconfiado">Lead desconfiado (questiona tudo)</option>
+          <option value="economico">Lead econômico (pechincha)</option>
+          <option value="vago">Lead vago (sem datas, indeciso)</option>
+          <option value="decidido">Lead decidido (quer fechar)</option>
+        </select>
         <label style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--txt-2);margin-bottom:8px;cursor:pointer"><input type="checkbox" id="simDraft" style="accent-color:var(--purple)"> Usar rascunhos de prompt (quando existirem)</label>
         <button class="btn blue" style="width:100%;justify-content:center" onclick="novaSimulacao()"><i class="ti ti-plus"></i> Nova simulação</button>
       </div>
@@ -1269,7 +1402,8 @@ function simListHTML(){
 async function novaSimulacao(){
   const nome=document.getElementById('simNome')?.value?.trim()||null;
   const usar_draft=!!document.getElementById('simDraft')?.checked;
-  const sim=await POST('/api/v1/gerente/simulacoes',{nome,usar_draft}).catch(e=>{toast(e.message,false);return null});
+  const personalidade=document.getElementById('simPers')?.value||null;
+  const sim=await POST('/api/v1/gerente/simulacoes',{nome,usar_draft,personalidade}).catch(e=>{toast(e.message,false);return null});
   if(!sim)return;
   S.sims=await GET('/api/v1/gerente/simulacoes').catch(()=>S.sims);
   const l=document.getElementById('simList');if(l)l.innerHTML=simListHTML();

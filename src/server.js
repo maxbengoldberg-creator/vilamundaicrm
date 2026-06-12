@@ -99,6 +99,13 @@ app.listen(env.port, () => {
     // Insights aplicáveis: etapa alvo e origem (qual simulação gerou).
     query(`ALTER TABLE insights ADD COLUMN IF NOT EXISTS etapa TEXT`),
     query(`ALTER TABLE insights ADD COLUMN IF NOT EXISTS origem TEXT`),
+    // Laboratório: camadas do comportamento do Atendente Max (C1-C4 editáveis).
+    // chaves: c1_identidade, c2_fatos, c3_regras, c3_regras_draft, c4_<stage>
+    query(`CREATE TABLE IF NOT EXISTS lab_camadas (
+      chave      TEXT PRIMARY KEY,
+      conteudo   TEXT NOT NULL DEFAULT '',
+      updated_at TIMESTAMPTZ DEFAULT now()
+    )`),
     // Intervenções do Gerente Ativo (Camada 3).
     query(`CREATE TABLE IF NOT EXISTS intervencoes (
       id              BIGSERIAL PRIMARY KEY,

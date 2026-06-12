@@ -8,17 +8,17 @@ import * as Message from '../models/message.model.js';
 import * as Conversation from '../models/conversation.model.js';
 import * as AutomationStage from '../models/automation_stage.model.js';
 import { invalidatePromptCache } from '../services/stage.prompts.js';
-import { runSimTurn, avaliarSimulacao, gerarFalaLead } from '../services/simulador.service.js';
+import { runSimTurn, avaliarSimulacao, gerarFalaLead, PERSONALIDADES, sortearPersonalidade } from '../services/simulador.service.js';
 import { query } from '../config/db.js';
 
 export async function criarSimulacao(req, res) {
   try {
-    const { nome, usar_draft, from_conversation_id } = req.body || {};
+    const { nome, usar_draft, from_conversation_id, personalidade } = req.body || {};
     const sim = await Simulacao.create({ nome: nome || null, usar_draft: !!usar_draft });
 
-    // Importa uma conversa real do Atendimentos como PERFIL: o ator-lead (IA)
-    // vai imitar aquele lead de verdade (estilo, dúvidas, objeções).
     if (from_conversation_id) {
+      // Importa uma conversa real do Atendimentos como PERFIL: o ator-lead (IA)
+      // vai imitar aquele lead de verdade (estilo, dúvidas, objeções).
       const conv = await Conversation.findById(from_conversation_id);
       const msgs = await Message.listForPanel(from_conversation_id);
       const transcript = msgs.map(m =>
@@ -26,6 +26,11 @@ export async function criarSimulacao(req, res) {
       const perfil = { conversation_id: from_conversation_id, nome_lead: conv?.nome || null, transcript };
       await query(`UPDATE simulacoes SET perfil = $2, nome = COALESCE(nome, $3) WHERE id = $1`,
         [sim.id, JSON.stringify(perfil), conv?.nome ? `Réplica — ${conv.nome}` : null]);
+    } else {
+      // Personalidade do ator-lead: escolhida ou sorteada (lead realista).
+      const p = (personalidade && PERSONALIDADES[personalidade]) ? personalidade : sortearPersonalidade();
+      await query(`UPDATE simulacoes SET perfil = $2 WHERE id = $1`,
+        [sim.id, JSON.stringify({ personalidade: p })]);
     }
     res.status(201).json(await Simulacao.findById(sim.id));
   } catch (e) { res.status(500).json({ error: e.message }); }

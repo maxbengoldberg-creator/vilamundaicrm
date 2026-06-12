@@ -6,6 +6,7 @@ import * as crm from '../controllers/crm.controller.js';
 import * as clientes from '../controllers/clientes.controller.js';
 import * as stages from '../controllers/stages.controller.js';
 import * as gerente from '../controllers/gerente.controller.js';
+import * as lab from '../controllers/lab.controller.js';
 import * as fotos from '../controllers/fotos.controller.js';
 import * as contrato from '../controllers/contrato.controller.js';
 
@@ -70,6 +71,14 @@ api.delete('/gerente/simulacoes/:id', gerente.apagarSimulacao);
 api.post('/gerente/simulacoes/:id/mensagem', gerente.mensagemSimulacao);
 api.post('/gerente/simulacoes/:id/lead-ia', gerente.cicloIaLead);
 api.post('/gerente/simulacoes/:id/avaliar', gerente.avaliar);
+// Laboratório — camadas do comportamento (C1-C4) + compositor
+api.get('/lab', lab.getLab);
+api.post('/lab/seed', lab.seed);
+api.patch('/lab/camada', lab.salvarCamada);
+api.post('/lab/c3/publicar', lab.publicarC3);
+api.get('/lab/compor', lab.compor);
+api.post('/lab/enviar-rascunhos', lab.enviarRascunhos);
+
 // Sugestões do Gerente Max (aplicáveis como rascunho na aba Fluxos)
 api.get('/gerente/insights', gerente.listarInsights);
 api.post('/gerente/insights/:id/aplicar', gerente.aplicarInsight);

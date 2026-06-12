@@ -217,12 +217,18 @@ RUBRICA:
 5. CONDUÇÃO DE VENDA: reconhece o que o lead traz, responde dúvida antes de avançar, fechamento natural sem pressão, avança quando há sinal de compra.
 (Os VALORES em si são mockados — não julgue se o preço é caro/barato, julgue o PROCESSO.)
 
+CLASSIFIQUE cada sugestão pela NATUREZA do problema (campo "camada"):
+- "c1_tom": tom/estilo de escrita do agente (vale para a conversa toda — frases, ritmo, formalidade, repetição de muletas)
+- "c2_fato": informação errada ou faltando sobre a hospedagem (capacidade, endereço, regras da casa, pagamento)
+- "c3_regra": regra de condução que vale em QUALQUER etapa (quando dar preço, não repetir, ritmo de perguntas, coleta de dados)
+- "c4_etapa": roteiro/fluxo de UMA etapa específica (informe a etapa)
+
 Responda APENAS JSON válido:
 {"nota_geral": 0-10,
  "erros": ["..."],
  "oportunidades_perdidas": ["..."],
  "pontos_fortes": ["..."],
- "sugestoes": [{"etapa": "qualif|apres|quente|negociacao|contrato|pagamento|ganho|morno|geral", "problema": "...", "ajuste_sugerido": "texto pronto para adicionar/alterar no prompt da etapa"}]}`;
+ "sugestoes": [{"camada": "c1_tom|c2_fato|c3_regra|c4_etapa", "etapa": "qualif|apres|quente|negociacao|contrato|pagamento|ganho|morno|geral", "problema": "...", "ajuste_sugerido": "texto pronto para adicionar/alterar"}]}`;
 
 // ===== Ator-lead (Fase 1.5): IA interpreta o lead na simulação =====
 // Lead REAL é curto, objetivo e imprevisível — o ator imita isso.

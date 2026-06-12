@@ -96,9 +96,10 @@ app.listen(env.port, () => {
     )`),
     // Ator-lead: perfil (transcript de conversa real) que a IA-lead imita.
     query(`ALTER TABLE simulacoes ADD COLUMN IF NOT EXISTS perfil JSONB`),
-    // Insights aplicáveis: etapa alvo e origem (qual simulação gerou).
+    // Insights aplicáveis: etapa alvo, origem e camada (roteamento C1-C4).
     query(`ALTER TABLE insights ADD COLUMN IF NOT EXISTS etapa TEXT`),
     query(`ALTER TABLE insights ADD COLUMN IF NOT EXISTS origem TEXT`),
+    query(`ALTER TABLE insights ADD COLUMN IF NOT EXISTS camada TEXT`),
     // Laboratório: camadas do comportamento do Atendente Max (C1-C4 editáveis).
     // chaves: c1_identidade, c2_fatos, c3_regras, c3_regras_draft, c4_<stage>
     query(`CREATE TABLE IF NOT EXISTS lab_camadas (

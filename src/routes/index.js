@@ -82,6 +82,7 @@ api.post('/lab/enviar-rascunhos', lab.enviarRascunhos);
 // Sugestões do Gerente Max (aplicáveis como rascunho na aba Fluxos)
 api.get('/gerente/insights', gerente.listarInsights);
 api.post('/gerente/insights/:id/aplicar', gerente.aplicarInsight);
+api.post('/gerente/insights/:id/aplicar-camada', gerente.aplicarInsightCamada);
 api.post('/gerente/insights/:id/descartar', gerente.descartarInsight);
 
 // Automações — builder genérico (legado)

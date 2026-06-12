@@ -110,12 +110,14 @@ export async function avaliar(req, res) {
     const rel = await avaliarSimulacao(sim);
     if (rel.ok) {
       await Simulacao.saveRelatorio(sim.id, rel);
-      // Cada sugestão vira uma pendência aplicável na aba Fluxos.
+      // Cada sugestão vira uma pendência aplicável, roteada pela camada:
+      // c4_etapa aparece no Fluxos e no Laboratório; c1/c2/c3 só no Laboratório.
       for (const s of (rel.sugestoes || [])) {
+        const camada = ['c1_tom', 'c2_fato', 'c3_regra', 'c4_etapa'].includes(s.camada) ? s.camada : 'c4_etapa';
         await query(
-          `INSERT INTO insights (padrao, sugestao, evidencia, etapa, origem, status)
-           VALUES ($1, $2, $3, $4, $5, 'novo')`,
-          [s.problema || '', s.ajuste_sugerido || '', `Simulação #${sim.id} (nota ${rel.nota_geral})`, s.etapa || 'geral', `simulacao:${sim.id}`]
+          `INSERT INTO insights (padrao, sugestao, evidencia, etapa, origem, camada, status)
+           VALUES ($1, $2, $3, $4, $5, $6, 'novo')`,
+          [s.problema || '', s.ajuste_sugerido || '', `Simulação #${sim.id} (nota ${rel.nota_geral})`, s.etapa || 'geral', `simulacao:${sim.id}`, camada]
         );
       }
     }
@@ -160,5 +162,37 @@ export async function descartarInsight(req, res) {
   try {
     await query(`UPDATE insights SET status = 'descartado' WHERE id = $1`, [req.params.id]);
     res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+}
+
+// Aplica a sugestão na CAMADA do Laboratório (C1/C2/C3/C4) — sempre como
+// adição marcada para revisão; nada vai direto a produção.
+export async function aplicarInsightCamada(req, res) {
+  try {
+    const { rows } = await query(`SELECT * FROM insights WHERE id = $1`, [req.params.id]);
+    const ins = rows[0];
+    if (!ins) return res.status(404).json({ error: 'sugestão não encontrada' });
+
+    const Lab = await import('../services/lab.service.js');
+    const camada = ins.camada || 'c4_etapa';
+    let chave;
+    if (camada === 'c1_tom') chave = 'c1_identidade';
+    else if (camada === 'c2_fato') chave = 'c2_fatos';
+    else if (camada === 'c3_regra') chave = 'c3_regras_draft';
+    else {
+      const etapa = (ins.etapa && ins.etapa !== 'geral') ? ins.etapa : (req.body?.etapa || null);
+      if (!etapa) return res.status(400).json({ error: 'sugestão de etapa sem etapa definida — informe {etapa}' });
+      chave = `c4_${etapa}`;
+    }
+    const lab = await Lab.getLab();
+    const atualMap = {
+      c1_identidade: lab.c1?.conteudo, c2_fatos: lab.c2?.conteudo,
+      c3_regras_draft: lab.c3_draft?.conteudo || lab.c3_codigo,
+    };
+    const base = chave.startsWith('c4_') ? (lab.c4?.[chave.slice(3)]?.conteudo || '') : (atualMap[chave] || '');
+    const novo = `${base}\n\n[AJUSTE SUGERIDO PELO GERENTE MAX — revise e edite]\n${ins.sugestao}`;
+    await Lab.salvarCamada(chave, novo);
+    await query(`UPDATE insights SET status = 'aplicado' WHERE id = $1`, [ins.id]);
+    res.json({ ok: true, camada, chave });
   } catch (e) { res.status(500).json({ error: e.message }); }
 }

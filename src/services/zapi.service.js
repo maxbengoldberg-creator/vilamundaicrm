@@ -20,6 +20,16 @@ async function post(path, body) {
   }
 }
 
+async function get(path) {
+  try {
+    const { data } = await axios.get(`${base()}${path}`, { headers: headers() });
+    return data;
+  } catch (err) {
+    console.error('[zapi] erro GET:', path, err.response?.data || err.message);
+    throw err;
+  }
+}
+
 export const zapi = {
   // Envia texto simples
   sendText(phone, message) {
@@ -36,5 +46,11 @@ export const zapi = {
   // Envia documento (ex.: contrato em PDF)
   sendDocument(phone, docUrl, fileName) {
     return post(`/send-document/pdf`, { phone, document: docUrl, fileName });
+  },
+  // Verifica se o número tem WhatsApp e retorna o LID associado
+  // ({ exists, phone, lid }). LID->telefone não existe (privacidade);
+  // telefone->LID é o único caminho — usado para mapear proativamente.
+  phoneExists(phone) {
+    return get(`/phone-exists/${phone}`);
   },
 };

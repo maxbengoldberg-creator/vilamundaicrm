@@ -156,6 +156,31 @@ export async function vincularLid(req, res, next) {
   } catch (e) { next(e); }
 }
 
+// Backfill: busca o LID (telefone -> LID via Z-API) de todos os leads que
+// ainda não têm, grava o mapa e funde contatos provisórios "@lid".
+export async function backfillLids(req, res, next) {
+  try {
+    const { rows: leads } = await query(
+      `SELECT id, phone, nome, lid FROM leads
+        WHERE lid IS NULL AND phone NOT LIKE '%@%' ORDER BY id DESC LIMIT 200`);
+    const { mergeLidOrphans } = await import('../services/agent.service.js');
+    const report = { mapeados: 0, fundidos: 0, sem_lid: 0, erros: 0 };
+    for (const l of leads) {
+      try {
+        const r = await zapi.phoneExists(l.phone);
+        const lid = String(r?.lid || '').replace(/\D/g, '');
+        if (!lid) { report.sem_lid++; continue; }
+        await Lead.update(l.id, { lid });
+        const m = await mergeLidOrphans({ ...l, lid }, lid);
+        report.mapeados++;
+        if (m.merged) report.fundidos++;
+        await new Promise(r2 => setTimeout(r2, 350)); // gentil com a Z-API
+      } catch { report.erros++; }
+    }
+    res.json({ ok: true, total_processados: leads.length, ...report });
+  } catch (e) { next(e); }
+}
+
 // Pausar/retomar a IA num lead (toggle manual da régua/atendimento humano).
 export async function toggleAI(req, res, next) {
   try {

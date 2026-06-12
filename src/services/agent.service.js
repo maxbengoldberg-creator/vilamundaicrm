@@ -260,6 +260,17 @@ export async function handleIncoming({ phone, text, pushName, lid = null, operad
     await Lead.update(lead.id, { lid }).catch(() => {});
     lead.lid = lid;
     await mergeLidOrphans(lead, lid);
+  } else if (!lead.lid && !String(phone).includes('@')) {
+    // O webhook não trouxe o LID: busca proativa na Z-API (telefone -> LID),
+    // 1x por lead, em segundo plano. Garante o mapa ANTES de o WhatsApp
+    // resolver entregar alguma mensagem desta pessoa como "@lid".
+    zapi.phoneExists(phone).then(async (r) => {
+      const l = String(r?.lid || '').replace(/\D/g, '');
+      if (!l) return;
+      await Lead.update(lead.id, { lid: l }).catch(() => {});
+      const m = await mergeLidOrphans({ ...lead, lid: l }, l);
+      console.log(`[lid] lead ${lead.id} mapeado proativamente: ${phone} -> ${l}${m.merged ? ' (órfãos fundidos)' : ''}`);
+    }).catch(() => {});
   }
 
   let conv = await Conversation.findOpenByPhone(phone);

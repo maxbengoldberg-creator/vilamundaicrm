@@ -7,7 +7,8 @@ import { query } from '../config/db.js';
 // ao telefone real (guardado no lead) para a mesma pessoa não virar 2 contatos.
 async function resolverContato(body) {
   const rawPhone = body.phone || body.participantPhone || null;
-  const senderLid = body.senderLid || body.participantLid || null;
+  // chatLid é o identificador mais estável segundo a doc da Z-API.
+  const senderLid = body.chatLid || body.senderLid || body.participantLid || null;
   const lidNum = String(senderLid || (String(rawPhone).includes('@') ? rawPhone : '')).replace(/\D/g, '') || null;
   let phone = rawPhone;
   if (rawPhone && String(rawPhone).includes('@')) {

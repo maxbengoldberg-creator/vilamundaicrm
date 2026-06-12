@@ -74,7 +74,9 @@ function instrucaoOperadorSystem() {
 // Mensagem fixa de abertura para leads de anúncio (Meta Ads) na primeira mensagem.
 // Personalizada com o primeiro nome quando o formulário trouxe.
 function aberturaAnuncio(nome) {
-  const primeiro = (nome || '').trim().split(/\s+/)[0] || '';
+  let primeiro = (nome || '').trim().split(/\s+/)[0] || '';
+  // Capitaliza por garantia (formulários às vezes vêm em minúsculas).
+  if (primeiro) primeiro = primeiro.charAt(0).toUpperCase() + primeiro.slice(1).toLowerCase();
   return `${saudacao()}${primeiro ? ' ' + primeiro : ''}, eu sou o Max, host da Vila Mundaí, tudo bem? Me conta, já tem datas pra viagem?`;
 }
 
@@ -267,7 +269,10 @@ export async function handleIncoming({ phone, text, pushName, lid = null, operad
   if (formAds) {
     const patch = {};
     if (lead.origem !== 'meta_ads') patch.origem = 'meta_ads';
-    if (formAds.nome && !lead.nome) patch.nome = formAds.nome;
+    // O nome digitado no formulário é mais confiável que o apelido do perfil
+    // do WhatsApp (pushName, ex: "ruthembergdias") — sobrescreve quando o nome
+    // atual está vazio ou veio do pushName.
+    if (formAds.nome && (!lead.nome || lead.nome === pushName)) patch.nome = formAds.nome;
     if (formAds.email && !lead.email) patch.email = formAds.email;
     if (Object.keys(patch).length) {
       await Lead.update(lead.id, patch).catch(() => {});

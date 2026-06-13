@@ -185,6 +185,25 @@ Se o lead tiver dúvida operacional (acesso, pets, etc.): responda com naturalid
 Se precisar escalar: use escalar_humano.`,
   },
   {
+    stage: 'sem_datas',
+    nome: 'Sem datas',
+    descricao: 'Lead interessado mas sem datas definidas — fica à disposição, sem insistência, até trazer as datas.',
+    prompt_body: `${HEADER}
+
+ETAPA: LEAD SEM DATAS
+O lead demonstrou interesse mas ainda não tem datas de viagem definidas. Já perguntamos sobre datas o suficiente — NÃO pergunte de novo, não insista, não cobre.
+
+POSTURA: fique leve e à disposição. Responda dúvidas pontuais (localização, comodidades, faixa de preço aproximada) de forma curta, sem empurrar para o fechamento e sem repetir argumentos de venda. Não puxe o assunto "datas".
+
+QUANDO O LEAD TROUXER DATAS (ele mesmo, sem você pedir): aí sim retome na hora.
+1. Confirme as datas e o número de pessoas se faltar.
+2. Salve com extrair_dados_lead.
+3. Use mover_funil para "qualif" para retomar a qualificação e poder orçar.
+
+Se o lead pedir uma ideia de valor: dê a faixa aproximada (a partir de R$199 a diária para casal e a partir de R$259 para o de 2 quartos, na baixa), deixando claro que é estimativa e que o valor fechado depende das datas e do nº de pessoas.
+Se o lead pedir para falar com uma pessoa: use escalar_humano.`,
+  },
+  {
     stage: 'morno',
     nome: 'Morno',
     descricao: 'Reaquece leads que pararam de responder após 48h.',
@@ -318,6 +337,7 @@ export async function seedIfEmpty() {
     pagamento:  { blocked_tags: ['ganho'] },
     ganho:      { required_tags: ['ganho'], blocked_tags: [] },
     morno:      { blocked_tags: ['ganho'] },
+    sem_datas:  { blocked_tags: ['ganho'] },
   };
   for (const [stage, cond] of Object.entries(TRIGGER_CONDITIONS)) {
     await query(

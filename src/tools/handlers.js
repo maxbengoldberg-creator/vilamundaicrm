@@ -7,8 +7,14 @@ import * as Reservation from '../models/reservation.model.js';
 // Sequência oficial do funil. O robô só pode avançar para a etapa imediatamente seguinte.
 const STAGE_ORDER = ['qualif', 'apres', 'quente', 'negociacao', 'contrato', 'pagamento', 'ganho'];
 
-// De morno, o lead volta para negociacao (etapa após quente).
-const MORNO_NEXT = 'negociacao';
+// Desvios (estacionamento): a próxima etapa ao retomar o lead.
+// - morno: volta para negociacao (etapa após quente).
+// - sem_datas: volta para qualif quando o lead trouxer datas (reengajamento).
+const DESVIO_NEXT = { morno: 'negociacao', sem_datas: 'qualif' };
+
+// De quais etapas o robô pode ESTACIONAR um lead em "sem_datas" (lead sem datas
+// definidas, após no máximo 2 perguntas de data sem resposta).
+const PODE_PARAR_SEM_DATAS = ['qualif', 'apres'];
 
 // Mapa nome da acomodação -> place_type_id do Hospedin.
 const PLACE_TYPE_IDS = {
@@ -32,7 +38,7 @@ const TAG_POR_MIDIA = {
 };
 
 function nextStage(current) {
-  if (current === 'morno') return MORNO_NEXT;
+  if (DESVIO_NEXT[current]) return DESVIO_NEXT[current];
   const idx = STAGE_ORDER.indexOf(current);
   if (idx === -1 || idx === STAGE_ORDER.length - 1) return null;
   return STAGE_ORDER[idx + 1];
@@ -118,7 +124,10 @@ export const HANDLERS = {
 
   async mover_funil(input, ctx) {
     const allowed = nextStage(ctx.lead.stage);
-    if (input.stage !== allowed) {
+    // Estacionamento lateral: de qualif/apres o robô pode mover para "sem_datas"
+    // (lead sem datas definidas) mesmo não sendo a próxima etapa linear.
+    const podeParar = input.stage === 'sem_datas' && PODE_PARAR_SEM_DATAS.includes(ctx.lead.stage);
+    if (input.stage !== allowed && !podeParar) {
       return {
         ok: false,
         erro: `Avanço bloqueado: de "${ctx.lead.stage}" o próximo permitido é "${allowed}", não "${input.stage}". O robô só avança uma etapa por vez.`,

@@ -106,3 +106,23 @@ export async function setRobotStatus(req, res, next) {
     res.json({ ok: true, enabled });
   } catch (e) { next(e); }
 }
+
+// ===== MODO DO AGENTE: modelo1 (prompts por etapa) | modelo2 (camadas) =====
+// Apenas um modo ativo por vez. Vale em produção (o Atendente Max em si).
+
+export async function getAgentMode(req, res, next) {
+  try {
+    const mode = await Setting.get('agent_mode', 'modelo1');
+    res.json({ mode: mode === 'modelo2' ? 'modelo2' : 'modelo1' });
+  } catch (e) { next(e); }
+}
+
+export async function setAgentMode(req, res, next) {
+  try {
+    const mode = req.body.mode === 'modelo2' ? 'modelo2' : 'modelo1';
+    await Setting.set('agent_mode', mode);
+    const { invalidatePromptCache } = await import('../services/stage.prompts.js');
+    invalidatePromptCache();
+    res.json({ ok: true, mode });
+  } catch (e) { next(e); }
+}

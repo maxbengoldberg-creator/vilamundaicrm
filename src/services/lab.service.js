@@ -13,7 +13,7 @@ import { query } from '../config/db.js';
 import * as AutomationStage from '../models/automation_stage.model.js';
 import { REGRA_PRECO } from './stage.prompts.js';
 
-export const STAGES = ['qualif', 'apres', 'quente', 'negociacao', 'contrato', 'pagamento', 'ganho', 'morno'];
+export const STAGES = ['qualif', 'apres', 'quente', 'negociacao', 'contrato', 'pagamento', 'ganho', 'sem_datas', 'morno'];
 
 // ---------- C1: Identidade & Tom (união curada dos blocos TOM das 8 etapas) ----------
 const C1_SEED = `Você é o Max, host e consultor da Vila Mundaí em Porto Seguro, Bahia. Hoje é {{hoje}}.
@@ -135,6 +135,14 @@ export async function salvarCamada(chave, conteudo) {
   if (!validas.has(chave)) throw new Error(`chave inválida: ${chave}`);
   await setCamada(chave, conteudo || '');
   return { ok: true, chave };
+}
+
+// Ressincroniza o rascunho da C3 com a constante REGRA_PRECO do código.
+// Útil quando as regras globais mudam no código (ex.: novas regras de condução):
+// alinha o que o CEO vê/edita no Laboratório com o que de fato roda.
+export async function resyncC3Draft() {
+  await setCamada('c3_regras_draft', REGRA_PRECO.trim());
+  return { ok: true, tamanho: REGRA_PRECO.trim().length };
 }
 
 // Publica a C3: rascunho -> produção (runtime passa a ler do banco).

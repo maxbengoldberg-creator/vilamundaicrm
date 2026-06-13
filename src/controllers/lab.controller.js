@@ -16,6 +16,14 @@ export async function salvarCamada(req, res) {
   } catch (e) { res.status(400).json({ error: e.message }); }
 }
 
+export async function resyncC3(req, res) {
+  try {
+    const r = await Lab.resyncC3Draft();
+    invalidatePromptCache();
+    res.json(r);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+}
+
 export async function publicarC3(req, res) {
   try {
     const r = await Lab.publicarC3();

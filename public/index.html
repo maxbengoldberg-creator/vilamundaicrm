@@ -389,6 +389,7 @@ const COLS=[
   {id:'contrato',nome:'Contrato',cor:'#2dd4bf'},
   {id:'pagamento',nome:'Pagamento',cor:'#a78bfa'},
   {id:'ganho',nome:'Ganho',cor:'#34d399'},
+  {id:'sem_datas',nome:'Sem datas',cor:'#94a3b8'},
   {id:'morno',nome:'Morno',cor:'#64748b'},
   {id:'frio',nome:'Lead Frio',cor:'#38bdf8'},
 ];
@@ -693,9 +694,9 @@ async function vLeads(){
 /* ============================================================
    AUTOMAÇÕES — Editor de prompts por etapa
    ============================================================ */
-const STAGE_ORDER=['qualif','apres','quente','negociacao','contrato','pagamento','ganho','morno'];
-const STAGE_COR={qualif:'#4f8ff7',apres:'#9b87f5',quente:'#fbbf24',negociacao:'#fb923c',contrato:'#2dd4bf',pagamento:'#a78bfa',ganho:'#34d399',morno:'#64748b'};
-const STAGE_IC={qualif:'ti-user-question',apres:'ti-presentation',quente:'ti-flame',negociacao:'ti-scale',contrato:'ti-file-text',pagamento:'ti-credit-card',ganho:'ti-trophy',morno:'ti-snowflake'};
+const STAGE_ORDER=['qualif','apres','quente','negociacao','contrato','pagamento','ganho','sem_datas','morno'];
+const STAGE_COR={qualif:'#4f8ff7',apres:'#9b87f5',quente:'#fbbf24',negociacao:'#fb923c',contrato:'#2dd4bf',pagamento:'#a78bfa',ganho:'#34d399',sem_datas:'#94a3b8',morno:'#64748b'};
+const STAGE_IC={qualif:'ti-user-question',apres:'ti-presentation',quente:'ti-flame',negociacao:'ti-scale',contrato:'ti-file-text',pagamento:'ti-credit-card',ganho:'ti-trophy',sem_datas:'ti-calendar-off',morno:'ti-snowflake'};
 
 async function vAutomations(){
   const [stagesRaw,insights,regras]=await Promise.all([
@@ -1639,14 +1640,34 @@ async function simAuto(){
 const NODE_META={trigger:{cls:'n-trigger',ic:'ti-player-play',k:'Gatilho'},ia:{cls:'n-ia',ic:'ti-robot',k:'Agente IA'},msg:{cls:'n-msg',ic:'ti-message-2',k:'Mensagem'},cond:{cls:'n-cond',ic:'ti-arrows-split',k:'Condição'},acao:{cls:'n-acao',ic:'ti-bolt',k:'Ação'},pms:{cls:'n-pms',ic:'ti-database-search',k:'PMS'},extrai:{cls:'n-extrai',ic:'ti-forms',k:'Extração IA'},fim:{cls:'n-fim',ic:'ti-flag',k:'Fim'}};
 
 async function vAgente(){
-  const [robot,stages]=await Promise.all([
+  const [robot,stages,modeR]=await Promise.all([
     GET('/api/v1/robot/status').catch(()=>({enabled:true})),
     GET('/api/v1/automations/stages').catch(()=>[]),
+    GET('/api/v1/agent/mode').catch(()=>({mode:'modelo1'})),
   ]);
   const on=robot.enabled!==false;
+  const mode=modeR.mode==='modelo2'?'modelo2':'modelo1';
+  const modoCard=(id,titulo,desc,ic)=>{
+    const ativo=mode===id;
+    return `<div onclick="setAgentMode('${id}')" style="flex:1;cursor:pointer;display:flex;gap:11px;align-items:flex-start;padding:14px;border-radius:10px;border:1.5px solid ${ativo?'var(--blue)':'var(--line-2)'};background:${ativo?'var(--blue-soft)':'var(--surf-2)'};transition:.15s">
+      <i class="ti ${ic}" style="font-size:22px;color:${ativo?'var(--blue)':'var(--txt-3)'}"></i>
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:7px"><b style="font-size:13px;color:#fff">${titulo}</b>${ativo?'<span class="tag blue dot" style="font-size:9.5px">em uso</span>':''}</div>
+        <span style="font-size:11px;color:var(--txt-2);line-height:1.5;display:block;margin-top:3px">${desc}</span>
+      </div>
+    </div>`;
+  };
   document.getElementById('main').innerHTML=`<div class="view active">
   <div class="head"><div><h1>Agente IA</h1><div class="sub">Status e configuração do robô</div></div></div>
   <div class="pad">
+    <div class="card cpad" style="max-width:860px;margin-bottom:16px">
+      <h2 style="font-size:16px;margin-bottom:4px">Modo do agente</h2>
+      <p style="font-size:12px;color:var(--txt-3);margin-bottom:14px">Qual conjunto de instruções o Atendente Max usa ao responder. Só um modo fica ativo por vez — a troca vale na hora, sem deploy.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        ${modoCard('modelo1','Modelo 1 — Prompts por etapa','Um prompt completo por etapa do funil (aba Fluxos). Formato atual, em produção.','ti-list-details')}
+        ${modoCard('modelo2','Modelo 2 — Camadas','Monta o prompt das camadas do Laboratório (C1 identidade, C2 fatos, C4 etapa). As regras de condução são compartilhadas pelos dois modos.','ti-stack-2')}
+      </div>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:860px">
       <div class="card cpad">
         <h2 style="font-size:16px;margin-bottom:14px">Interruptor geral</h2>
@@ -1686,6 +1707,13 @@ async function toggleRobotAgente(el){
     toast(novo?'Robô ativado':'Robô desligado');
     await vAgente();
   }catch(e){toast('Erro ao alterar',false);el.classList.toggle('off')}
+}
+async function setAgentMode(mode){
+  try{
+    const r=await POST('/api/v1/agent/mode',{mode});
+    toast(r.mode==='modelo2'?'Agora usando Modelo 2 (camadas)':'Agora usando Modelo 1 (prompts por etapa)');
+    await vAgente();
+  }catch(e){toast('Erro ao trocar de modo',false)}
 }
 
 async function gerarFluxo(){

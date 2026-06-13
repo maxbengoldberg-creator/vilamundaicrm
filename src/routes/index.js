@@ -78,6 +78,7 @@ api.get('/lab', lab.getLab);
 api.post('/lab/seed', lab.seed);
 api.patch('/lab/camada', lab.salvarCamada);
 api.post('/lab/c3/publicar', lab.publicarC3);
+api.post('/lab/c3/resync', lab.resyncC3);
 api.get('/lab/compor', lab.compor);
 api.post('/lab/enviar-rascunhos', lab.enviarRascunhos);
 
@@ -106,6 +107,10 @@ api.delete('/clientes/:id', clientes.deleteCliente);
 api.post('/clientes/:id/boas-vindas', clientes.enviarBoasVindas);
 api.get("/robot/status", clientes.getRobotStatus);
 api.post("/robot/status", clientes.setRobotStatus);
+
+// Modo do agente: modelo1 (prompts por etapa) | modelo2 (camadas do Laboratório)
+api.get('/agent/mode', clientes.getAgentMode);
+api.post('/agent/mode', clientes.setAgentMode);
 
 router.use('/api/v1', api);
 

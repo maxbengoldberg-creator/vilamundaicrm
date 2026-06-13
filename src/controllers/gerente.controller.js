@@ -8,15 +8,21 @@ import * as Message from '../models/message.model.js';
 import * as Conversation from '../models/conversation.model.js';
 import * as AutomationStage from '../models/automation_stage.model.js';
 import { invalidatePromptCache } from '../services/stage.prompts.js';
-import { runSimTurn, avaliarSimulacao, gerarFalaLead, PERSONALIDADES, sortearPersonalidade } from '../services/simulador.service.js';
+import { runSimTurn, avaliarSimulacao, gerarFalaLead, parseRoteiro, PERSONALIDADES, sortearPersonalidade } from '../services/simulador.service.js';
 import { query } from '../config/db.js';
 
 export async function criarSimulacao(req, res) {
   try {
-    const { nome, usar_draft, from_conversation_id, personalidade } = req.body || {};
+    const { nome, usar_draft, from_conversation_id, personalidade, roteiro } = req.body || {};
     const sim = await Simulacao.create({ nome: nome || null, usar_draft: !!usar_draft });
 
-    if (from_conversation_id) {
+    if (roteiro && String(roteiro).trim()) {
+      // Diálogo colado/subido (.txt): o lead-IA reproduz as falas exatas.
+      const falas = parseRoteiro(roteiro);
+      await query(`UPDATE simulacoes SET perfil = $2, nome = COALESCE(nome, $3) WHERE id = $1`,
+        [sim.id, JSON.stringify({ modo: 'roteiro', roteiro: falas, transcript: String(roteiro).slice(0, 8000) }),
+         `Roteiro (${falas.length} falas)`]);
+    } else if (from_conversation_id) {
       // Importa uma conversa real do Atendimentos como PERFIL: o ator-lead (IA)
       // vai imitar aquele lead de verdade (estilo, dúvidas, objeções).
       const conv = await Conversation.findById(from_conversation_id);
@@ -150,7 +156,8 @@ export async function aplicarInsight(req, res) {
     const st = await AutomationStage.getByStage(etapa);
     if (!st) return res.status(404).json({ error: `etapa "${etapa}" não encontrada` });
     const base = st.prompt_draft || st.prompt_body || '';
-    const novo = `${base}\n\n[AJUSTE SUGERIDO PELO GERENTE MAX — revise e edite antes de promover]\n${ins.sugestao}`;
+    const texto = (req.body?.sugestao ?? ins.sugestao);  // permite editar antes de aplicar
+    const novo = `${base}\n\n[AJUSTE SUGERIDO PELO GERENTE MAX — revise e edite antes de promover]\n${texto}`;
     await AutomationStage.saveDraft(etapa, novo);
     await query(`UPDATE insights SET status = 'aplicado' WHERE id = $1`, [ins.id]);
     invalidatePromptCache();
@@ -190,7 +197,8 @@ export async function aplicarInsightCamada(req, res) {
       c3_regras_draft: lab.c3_draft?.conteudo || lab.c3_codigo,
     };
     const base = chave.startsWith('c4_') ? (lab.c4?.[chave.slice(3)]?.conteudo || '') : (atualMap[chave] || '');
-    const novo = `${base}\n\n[AJUSTE SUGERIDO PELO GERENTE MAX — revise e edite]\n${ins.sugestao}`;
+    const texto = (req.body?.sugestao ?? ins.sugestao);  // permite editar antes de aplicar
+    const novo = `${base}\n\n[AJUSTE SUGERIDO PELO GERENTE MAX — revise e edite]\n${texto}`;
     await Lab.salvarCamada(chave, novo);
     await query(`UPDATE insights SET status = 'aplicado' WHERE id = $1`, [ins.id]);
     res.json({ ok: true, camada, chave });

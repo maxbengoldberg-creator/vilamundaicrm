@@ -248,9 +248,50 @@ export function sortearPersonalidade() {
   return keys[Math.floor(Math.random() * keys.length)];
 }
 
+// Extrai as falas DO LEAD de um diálogo colado/subido (.txt). Suporta:
+//  - export do WhatsApp: "[dd/mm/aaaa, hh:mm:ss] Nome: msg" / "dd/mm/aa hh:mm - Nome: msg"
+//  - "LEAD: ..." / "Cliente: ..." / "Nome: ..."
+//  - linhas soltas (cada linha vira uma fala do lead)
+// O host (Vila Mundaí / Max / Agente / Atendente / IA / Bot) é descartado.
+const RE_HOST = /vila\s*mund|^\s*max\b|agente|atendente|^\s*ia\b|robo|robô|\bbot\b/i;
+export function parseRoteiro(texto) {
+  const linhas = String(texto || '').split(/\r?\n/);
+  const falas = [];
+  let temPrefixo = false;
+  for (let raw of linhas) {
+    let l = raw.trim();
+    if (!l) continue;
+    // remove timestamp de export do WhatsApp
+    l = l.replace(/^\[?\d{1,2}[\/.]\d{1,2}[\/.]\d{2,4}[,]?\s*\d{1,2}:\d{2}(?::\d{2})?\]?\s*[-–]?\s*/, '');
+    const m = l.match(/^([~\w][\w\sÀ-ÿ.'-]{0,40}?):\s*(.+)$/);
+    if (m) {
+      temPrefixo = true;
+      const quem = m[1].trim();
+      const msg = m[2].trim();
+      if (!RE_HOST.test(quem) && msg && !/mensagem (apagada|editada)|imagem ocultada|‎/.test(msg)) {
+        falas.push(msg);
+      }
+    } else if (!temPrefixo) {
+      // sem prefixo de quem fala: trata cada linha como fala do lead
+      if (!/mensagem (apagada|editada)|imagem ocultada/.test(l)) falas.push(l);
+    }
+  }
+  return falas;
+}
+
 export async function gerarFalaLead(sim) {
   const transcript = sim.transcript || [];
   const perfil = sim.perfil || null;
+
+  // MODO ROTEIRO: reproduz as falas exatas do lead, na ordem. Quando acabam,
+  // a IA continua imitando o estilo daquela pessoa (transcript de referência).
+  if (perfil?.modo === 'roteiro' && Array.isArray(perfil.roteiro)) {
+    const jaFalou = transcript.filter(t => t.role === 'lead').length;
+    if (jaFalou < perfil.roteiro.length) return perfil.roteiro[jaFalou];
+    // roteiro esgotado: encerra (não inventa fala além do diálogo real)
+    return '[FIM]';
+  }
+
   const historico = transcript.map(t => `${t.role === 'lead' ? 'LEAD' : 'ATENDENTE'}: ${t.text}`).join('\n');
 
   let quem;

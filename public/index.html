@@ -746,11 +746,13 @@ function insightCard(i){
       </span>
     </div>
     <div style="font-size:11.5px;color:var(--txt-2)"><b style="color:var(--red)">Problema:</b> ${escHtml(i.padrao||'')}</div>
-    <div style="font-size:11.5px;color:var(--teal);margin-top:3px;white-space:pre-line"><b>Ajuste:</b> ${escHtml(i.sugestao||'')}</div>
+    <div style="font-size:10px;color:var(--teal);font-weight:700;margin-top:5px">AJUSTE (edite antes de aplicar, se quiser):</div>
+    <textarea id="insTxt${i.id}" style="width:100%;height:64px;resize:vertical;margin-top:3px;background:var(--surf);border:1px solid var(--line-2);border-radius:6px;color:var(--txt);padding:6px 8px;font-size:11px;font-family:monospace">${escHtml(i.sugestao||'')}</textarea>
   </div>`;
 }
 async function aplicarInsight(id,precisaEtapa){
-  const body=precisaEtapa?{etapa:document.getElementById('insEtapa'+id)?.value}:{ };
+  const body={sugestao:document.getElementById('insTxt'+id)?.value};
+  if(precisaEtapa)body.etapa=document.getElementById('insEtapa'+id)?.value;
   try{
     const r=await POST(`/api/v1/gerente/insights/${id}/aplicar`,body);
     toast(`Adicionado ao rascunho de "${r.etapa}" — revise e teste no simulador`);
@@ -1240,11 +1242,13 @@ function labInsightCard(i){
       </span>
     </div>
     <div style="font-size:11.5px;color:var(--txt-2)"><b style="color:var(--red)">Problema:</b> ${escHtml(i.padrao||'')}</div>
-    <div style="font-size:11.5px;color:var(--teal);margin-top:3px;white-space:pre-line"><b>Ajuste:</b> ${escHtml(i.sugestao||'')}</div>
+    <div style="font-size:10px;color:var(--teal);font-weight:700;margin-top:5px">AJUSTE (edite antes de aplicar, se quiser):</div>
+    <textarea id="labInsTxt${i.id}" style="width:100%;height:64px;resize:vertical;margin-top:3px;background:var(--surf);border:1px solid var(--line-2);border-radius:6px;color:var(--txt);padding:6px 8px;font-size:11px;font-family:monospace">${escHtml(i.sugestao||'')}</textarea>
   </div>`;
 }
 async function labAplicarInsight(id,precisaEtapa){
-  const body=precisaEtapa?{etapa:document.getElementById('labInsEtapa'+id)?.value}:{ };
+  const body={sugestao:document.getElementById('labInsTxt'+id)?.value};
+  if(precisaEtapa)body.etapa=document.getElementById('labInsEtapa'+id)?.value;
   try{
     const r=await POST(`/api/v1/gerente/insights/${id}/aplicar-camada`,body);
     toast(`Adicionado em ${r.chave} — revise no editor abaixo`);
@@ -1406,6 +1410,12 @@ async function vGerente(){
           <option value="decidido">Lead decidido (quer fechar)</option>
         </select>
         <label style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--txt-2);margin-bottom:8px;cursor:pointer"><input type="checkbox" id="simDraft" style="accent-color:var(--purple)"> Usar rascunhos de prompt (quando existirem)</label>
+        <details style="margin-bottom:8px;background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px">
+          <summary style="cursor:pointer;font-size:11.5px;color:var(--teal)"><i class="ti ti-file-text"></i> Subir diálogo (.txt) — lead reproduz as falas reais</summary>
+          <p style="font-size:10.5px;color:var(--txt-3);margin:7px 0">Cole ou carregue um diálogo. O lead-IA vai escrever exatamente o que a pessoa escreveu, na ordem, e você vê o Atendente responder. (As falas do host/Vila Mundaí são ignoradas.)</p>
+          <input type="file" id="simRoteiroFile" accept=".txt,text/plain" style="font-size:11px;margin-bottom:6px;color:var(--txt-2)" onchange="lerRoteiroArquivo(this)">
+          <textarea id="simRoteiro" placeholder="Cole aqui o diálogo (ou use o arquivo acima)…" style="width:100%;height:120px;resize:vertical;background:var(--surf);border:1px solid var(--line-2);border-radius:7px;color:var(--txt);padding:8px 10px;font-size:11.5px;font-family:monospace"></textarea>
+        </details>
         <button class="btn blue" style="width:100%;justify-content:center" onclick="novaSimulacao()"><i class="ti ti-plus"></i> Nova simulação</button>
       </div>
       <div class="cl-convs" id="simList">${simListHTML()}</div>
@@ -1440,11 +1450,18 @@ function simListHTML(){
     <span onclick="event.stopPropagation();apagarSim(${s.id})" title="Apagar" style="color:var(--txt-3);font-size:14px;align-self:center;cursor:pointer"><i class="ti ti-trash"></i></span>
   </div>`}).join('');
 }
+function lerRoteiroArquivo(input){
+  const f=input.files&&input.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{const ta=document.getElementById('simRoteiro');if(ta){ta.value=r.result;toast('Diálogo carregado — clique em Nova simulação')}};
+  r.readAsText(f);
+}
 async function novaSimulacao(){
   const nome=document.getElementById('simNome')?.value?.trim()||null;
   const usar_draft=!!document.getElementById('simDraft')?.checked;
   const personalidade=document.getElementById('simPers')?.value||null;
-  const sim=await POST('/api/v1/gerente/simulacoes',{nome,usar_draft,personalidade}).catch(e=>{toast(e.message,false);return null});
+  const roteiro=document.getElementById('simRoteiro')?.value?.trim()||null;
+  const sim=await POST('/api/v1/gerente/simulacoes',{nome,usar_draft,personalidade,roteiro}).catch(e=>{toast(e.message,false);return null});
   if(!sim)return;
   S.sims=await GET('/api/v1/gerente/simulacoes').catch(()=>S.sims);
   const l=document.getElementById('simList');if(l)l.innerHTML=simListHTML();

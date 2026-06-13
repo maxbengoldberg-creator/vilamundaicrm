@@ -152,12 +152,15 @@ export async function limparWorkDir(workDir) {
 }
 
 // Sobe o PDF no Cloudinary e devolve a URL pública (para enviar via Z-API).
+// O public_id TERMINA em .pdf: sem a extensão na URL, a Z-API/WhatsApp não
+// reconhece o documento e a mensagem chega sem o anexo.
 export async function uploadPdf(pdfPath, lead) {
-  const publicId = `contratos/contrato-lead-${lead.id}`;
+  const publicId = `contratos/contrato-lead-${lead.id}.pdf`;
   const res = await cloudinary.uploader.upload(pdfPath, {
     resource_type: 'raw',
     public_id: publicId,
     overwrite: true,
+    invalidate: true,
   });
   return res.secure_url;
 }

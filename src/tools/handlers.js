@@ -48,6 +48,11 @@ function nextStage(current) {
   return STAGE_ORDER[idx + 1];
 }
 
+const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Pausa antes de confirmar a pré-reserva (parece mais natural, "estou registrando").
+const DELAY_CONFIRMA_RESERVA_MS = 30000;
+
 // ==========================================================
 //  Executores das ferramentas. Cada handler recebe:
 //    (input, ctx)  onde ctx = { lead, phone }
@@ -57,8 +62,16 @@ function nextStage(current) {
 
 export const HANDLERS = {
   async consultar_disponibilidade(input, ctx) {
-    const r = await hospedin.disponibilidade(input);
-    if (!r.ok || !Array.isArray(r.disponiveis) || r.disponiveis.length === 0) return r;
+    // Tenta de novo em caso de instabilidade (até 3x) — o agente não deve
+    // expor "erro" ao lead; quem resolve é o retry aqui.
+    let r;
+    for (let tentativa = 1; tentativa <= 3; tentativa++) {
+      try { r = await hospedin.disponibilidade(input); }
+      catch (e) { r = { ok: false, erro: e.message }; }
+      if (r && r.ok) break;
+      if (tentativa < 3) await delay(1500);
+    }
+    if (!r || !r.ok || !Array.isArray(r.disponiveis) || r.disponiveis.length === 0) return r || { ok: false };
     // Marca que o orçamento já foi consultado nesta conversa, para o agente não
     // oferecer "quer que eu veja os valores?" de novo (só reconsulta em mudança).
     if (ctx?.lead?.id) await Lead.addTags(ctx.lead.id, ['orcamento_apresentado']);
@@ -214,6 +227,8 @@ export const HANDLERS = {
         status: r.status,
         payload: r.raw,
       });
+      // Pausa antes de a confirmação chegar ao lead (não parecer instantâneo).
+      await delay(DELAY_CONFIRMA_RESERVA_MS);
     }
     return r;
   },

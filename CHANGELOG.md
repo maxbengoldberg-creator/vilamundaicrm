@@ -3,6 +3,24 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 4.1 — 2026-06-13
+
+Correção do preço inflado (ex.: 1Q Superior saindo R$ 6.000 em vez de R$ 1.990).
+
+**Causa:** em `consultar_disponibilidade`, quando a cotação real (pré-reserva
+temporária) de um tipo falhava (unidade ocupada/instabilidade), o código caía
+num fallback que mostrava a **tarifa cheia do calendário** (`rates_and_availabilities`,
+SEM desconto por ocupação). A superior tem desconto grande (cheia ~R$600 →
+R$199 para casal), então o fallback gerava 600×10 = R$6.000.
+
+**Correção (`src/tools/handlers.js`):**
+- Retry (até 3x) na cotação real por tipo.
+- Removido o fallback de tarifa cheia: tipo sem cotação real é **omitido**, nunca
+  apresentado com a tarifa do calendário (regra de ouro: preço só da pré-reserva).
+- Itens montados só com os valores do `cotarNativo` (a diária do calendário não
+  vaza mais nem em caso de sucesso). Se todos falharem, retorna erro → o agente
+  refaz a consulta calado.
+
 ## Atualização 4.0 — 2026-06-13
 
 Refino do convite de pré-reserva e alinhamento da etapa Lead Quente nos dois modelos.

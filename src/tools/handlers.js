@@ -75,36 +75,45 @@ export const HANDLERS = {
     // Marca que o orçamento já foi consultado nesta conversa, para o agente não
     // oferecer "quer que eu veja os valores?" de novo (só reconsulta em mudança).
     if (ctx?.lead?.id) await Lead.addTags(ctx.lead.id, ['orcamento_apresentado']);
-    // Busca o preço real de cada apto disponível em paralelo, criando pré-reservas
-    // temporárias no PMS (canceladas imediatamente). Isso garante que o preço
-    // já inclui a tarifa da faixa de datas + o desconto por ocupação configurado
-    // pelo anfitrião no PMS — sem nenhuma tabela hardcoded no nosso código.
-    const cotacoes = await Promise.all(
-      r.disponiveis.map(d =>
-        hospedin.cotarNativo({
-          checkin: input.checkin,
-          checkout: input.checkout,
-          guests: input.guests,
-          place_type_id: d.place_type_id,
-          cancelar: true,
-        }).catch(e => {
-          console.error('[cotarNativo] falhou para', d.acomodacao, e.message);
-          return { ok: false };
-        })
-      )
-    );
-    r.disponiveis = r.disponiveis.map((d, i) => {
+    // Busca o preço REAL de cada apto criando pré-reservas temporárias no PMS
+    // (canceladas na hora): inclui a tarifa da faixa + o desconto por ocupação.
+    // Com retry: unidade ocupada/instabilidade não pode virar preço errado.
+    const cotarComRetry = async (d) => {
+      for (let t = 1; t <= 3; t++) {
+        try {
+          const c = await hospedin.cotarNativo({
+            checkin: input.checkin, checkout: input.checkout,
+            guests: input.guests, place_type_id: d.place_type_id, cancelar: true,
+          });
+          if (c && c.ok) return c;
+        } catch (e) { console.error('[cotarNativo] falhou para', d.acomodacao, e.message); }
+        if (t < 3) await delay(1200);
+      }
+      return { ok: false };
+    };
+    const cotacoes = await Promise.all(r.disponiveis.map(cotarComRetry));
+    // REGRA DE OURO: só apresenta tipo com PREÇO REAL (pré-reserva). NUNCA cai
+    // na tarifa cheia do calendário (sem desconto por ocupação) — tipo sem
+    // cotação real é OMITIDO, em vez de mostrar valor inflado.
+    const comPreco = [];
+    r.disponiveis.forEach((d, i) => {
       const c = cotacoes[i];
-      if (!c.ok) return { ...d, noites: r.noites }; // fallback sem preço
-      return {
-        ...d,
+      if (!c.ok) { console.warn(`[disponibilidade] ${d.acomodacao} sem cotação real — omitido (sem fallback de tarifa cheia)`); return; }
+      comPreco.push({
+        place_type_id: d.place_type_id,
+        place_id: d.place_id,
+        acomodacao: d.acomodacao,
+        occupants: d.occupants,
+        disponivel: true,
         noites: r.noites,
         diaria: c.diaria_media,
         diaria_formatada: c.diaria_media.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
         total_estadia: c.total,
         total_formatado: c.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-      };
+      });
     });
+    if (comPreco.length === 0) return { ok: false, erro: 'Não foi possível confirmar os valores agora.' };
+    r.disponiveis = comPreco;
     return r;
   },
 

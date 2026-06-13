@@ -72,6 +72,7 @@ api.delete('/gerente/simulacoes/:id', gerente.apagarSimulacao);
 api.post('/gerente/simulacoes/:id/mensagem', gerente.mensagemSimulacao);
 api.post('/gerente/simulacoes/:id/lead-ia', gerente.cicloIaLead);
 api.post('/gerente/simulacoes/:id/avaliar', gerente.avaliar);
+api.post('/gerente/avaliar-caso-real', gerente.avaliarCasoReal);
 // Laboratório — camadas do comportamento (C1-C4) + compositor
 api.get('/lab', lab.getLab);
 api.post('/lab/seed', lab.seed);

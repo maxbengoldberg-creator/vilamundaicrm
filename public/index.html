@@ -1415,8 +1415,12 @@ async function vGerente(){
           <p style="font-size:10.5px;color:var(--txt-3);margin:7px 0">Cole ou carregue um diálogo. O lead-IA vai escrever exatamente o que a pessoa escreveu, na ordem, e você vê o Atendente responder. (As falas do host/Vila Mundaí são ignoradas.)</p>
           <input type="file" id="simRoteiroFile" accept=".txt,text/plain" style="font-size:11px;margin-bottom:6px;color:var(--txt-2)" onchange="lerRoteiroArquivo(this)">
           <textarea id="simRoteiro" placeholder="Cole aqui o diálogo (ou use o arquivo acima)…" style="width:100%;height:120px;resize:vertical;background:var(--surf);border:1px solid var(--line-2);border-radius:7px;color:var(--txt);padding:8px 10px;font-size:11.5px;font-family:monospace"></textarea>
+          <p style="font-size:10px;color:var(--txt-3);margin-top:6px"><b>Nova simulação</b>: o lead reproduz as falas e o Atendente Max responde do zero. <b>Avaliar caso real</b>: julga o diálogo como aconteceu (lead + atendente do arquivo), sem rodar simulação.</p>
         </details>
-        <button class="btn blue" style="width:100%;justify-content:center" onclick="novaSimulacao()"><i class="ti ti-plus"></i> Nova simulação</button>
+        <div style="display:flex;gap:7px">
+          <button class="btn blue" style="flex:1;justify-content:center" onclick="novaSimulacao()"><i class="ti ti-plus"></i> Nova simulação</button>
+          <button class="btn ghost" style="flex:1;justify-content:center;color:var(--teal);border-color:rgba(45,212,191,.4)" title="Avalia o diálogo real do .txt (lead + atendente), sem simular" onclick="avaliarCasoReal()"><i class="ti ti-report-search"></i> Avaliar caso real</button>
+        </div>
       </div>
       <div class="cl-convs" id="simList">${simListHTML()}</div>
     </div>
@@ -1453,8 +1457,21 @@ function simListHTML(){
 function lerRoteiroArquivo(input){
   const f=input.files&&input.files[0];if(!f)return;
   const r=new FileReader();
-  r.onload=()=>{const ta=document.getElementById('simRoteiro');if(ta){ta.value=r.result;toast('Diálogo carregado — clique em Nova simulação')}};
+  r.onload=()=>{const ta=document.getElementById('simRoteiro');if(ta){ta.value=r.result;toast('Diálogo carregado')}};
   r.readAsText(f);
+}
+async function avaliarCasoReal(){
+  const texto=document.getElementById('simRoteiro')?.value?.trim();
+  if(!texto){toast('Cole ou suba um diálogo (.txt) primeiro',false);return}
+  const nome=document.getElementById('simNome')?.value?.trim()||null;
+  toast('Gerente Max avaliando o diálogo real…');
+  const r=await POST('/api/v1/gerente/avaliar-caso-real',{texto,nome}).catch(e=>{toast(e.message,false);return null});
+  if(!r)return;
+  if(!r.ok){toast(r.erro||'não foi possível avaliar',false);return}
+  S.sims=await GET('/api/v1/gerente/simulacoes').catch(()=>S.sims);
+  const l=document.getElementById('simList');if(l)l.innerHTML=simListHTML();
+  await abrirSim(r.simulacao_id);
+  toast(`Avaliado — nota ${r.nota_geral}/10 (${r.turnos} turnos)`);
 }
 async function novaSimulacao(){
   const nome=document.getElementById('simNome')?.value?.trim()||null;

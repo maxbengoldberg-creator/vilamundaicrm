@@ -8,7 +8,19 @@ import * as Message from '../models/message.model.js';
 import * as Conversation from '../models/conversation.model.js';
 import * as AutomationStage from '../models/automation_stage.model.js';
 import { invalidatePromptCache } from '../services/stage.prompts.js';
-import { runSimTurn, avaliarSimulacao, gerarFalaLead, parseRoteiro, PERSONALIDADES, sortearPersonalidade } from '../services/simulador.service.js';
+import { runSimTurn, avaliarSimulacao, gerarFalaLead, parseRoteiro, parseDialogoCompleto, PERSONALIDADES, sortearPersonalidade } from '../services/simulador.service.js';
+
+// Grava as sugestões de uma avaliação como insights (roteadas por camada).
+async function gravarSugestoes(simId, rel) {
+  for (const s of (rel.sugestoes || [])) {
+    const camada = ['c1_tom', 'c2_fato', 'c3_regra', 'c4_etapa'].includes(s.camada) ? s.camada : 'c4_etapa';
+    await query(
+      `INSERT INTO insights (padrao, sugestao, evidencia, etapa, origem, camada, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'novo')`,
+      [s.problema || '', s.ajuste_sugerido || '', `Avaliação #${simId} (nota ${rel.nota_geral})`, s.etapa || 'geral', `simulacao:${simId}`, camada]
+    );
+  }
+}
 import { query } from '../config/db.js';
 
 export async function criarSimulacao(req, res) {
@@ -114,22 +126,33 @@ export async function avaliar(req, res) {
     const sim = await Simulacao.findById(req.params.id);
     if (!sim) return res.status(404).json({ error: 'simulação não encontrada' });
     const rel = await avaliarSimulacao(sim);
-    if (rel.ok) {
-      await Simulacao.saveRelatorio(sim.id, rel);
-      // Cada sugestão vira uma pendência aplicável, roteada pela camada:
-      // c4_etapa aparece no Fluxos e no Laboratório; c1/c2/c3 só no Laboratório.
-      for (const s of (rel.sugestoes || [])) {
-        const camada = ['c1_tom', 'c2_fato', 'c3_regra', 'c4_etapa'].includes(s.camada) ? s.camada : 'c4_etapa';
-        await query(
-          `INSERT INTO insights (padrao, sugestao, evidencia, etapa, origem, camada, status)
-           VALUES ($1, $2, $3, $4, $5, $6, 'novo')`,
-          [s.problema || '', s.ajuste_sugerido || '', `Simulação #${sim.id} (nota ${rel.nota_geral})`, s.etapa || 'geral', `simulacao:${sim.id}`, camada]
-        );
-      }
-    }
+    if (rel.ok) { await Simulacao.saveRelatorio(sim.id, rel); await gravarSugestoes(sim.id, rel); }
     res.json(rel);
   } catch (e) {
     console.error('[gerente] avaliação falhou:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+}
+
+// Avalia um CASO REAL: diálogo .txt (lead + atendente, como aconteceu).
+// Não roda simulação — só julga a conversa que já houve.
+export async function avaliarCasoReal(req, res) {
+  try {
+    const { texto, nome } = req.body || {};
+    if (!texto || !texto.trim()) return res.status(400).json({ error: 'texto do diálogo é obrigatório' });
+    const transcript = parseDialogoCompleto(texto);
+    if (transcript.length < 2) return res.status(400).json({ error: 'diálogo muito curto ou não reconhecido' });
+
+    const sim = await Simulacao.create({ nome: nome || `Caso real ${new Date().toLocaleDateString('pt-BR')}`, usar_draft: false });
+    await query(`UPDATE simulacoes SET perfil = $2, transcript = $3, status = 'avaliada' WHERE id = $1`,
+      [sim.id, JSON.stringify({ modo: 'caso_real' }), JSON.stringify(transcript)]);
+
+    const full = await Simulacao.findById(sim.id);
+    const rel = await avaliarSimulacao(full);
+    if (rel.ok) { await Simulacao.saveRelatorio(sim.id, rel); await gravarSugestoes(sim.id, rel); }
+    res.json({ ...rel, simulacao_id: sim.id, turnos: transcript.length });
+  } catch (e) {
+    console.error('[gerente] avaliar caso real falhou:', e.message);
     res.status(500).json({ error: e.message });
   }
 }

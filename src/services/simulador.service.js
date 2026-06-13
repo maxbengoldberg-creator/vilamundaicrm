@@ -279,6 +279,32 @@ export function parseRoteiro(texto) {
   return falas;
 }
 
+// Parseia um diálogo .txt em transcript COMPLETO (lead + atendente), para
+// avaliar um caso real como aconteceu. Host -> 'agente', resto -> 'lead'.
+export function parseDialogoCompleto(texto) {
+  const linhas = String(texto || '').split(/\r?\n/);
+  const turnos = [];
+  let temPrefixo = false;
+  for (let raw of linhas) {
+    let l = raw.trim();
+    if (!l) continue;
+    l = l.replace(/^\[?\d{1,2}[\/.]\d{1,2}[\/.]\d{2,4}[,]?\s*\d{1,2}:\d{2}(?::\d{2})?\]?\s*[-–]?\s*/, '');
+    const m = l.match(/^([~\w][\w\sÀ-ÿ.'-]{0,40}?):\s*(.+)$/);
+    if (m) {
+      temPrefixo = true;
+      const quem = m[1].trim(); const msg = m[2].trim();
+      if (/mensagem (apagada|editada)|imagem ocultada|‎/.test(msg)) continue;
+      turnos.push({ role: RE_HOST.test(quem) ? 'agente' : 'lead', text: msg });
+    } else if (!temPrefixo) {
+      // sem rótulos de quem fala: não dá para distinguir — assume alternância
+      // começando pelo lead
+      const role = turnos.length % 2 === 0 ? 'lead' : 'agente';
+      turnos.push({ role, text: l });
+    }
+  }
+  return turnos;
+}
+
 export async function gerarFalaLead(sim) {
   const transcript = sim.transcript || [];
   const perfil = sim.perfil || null;
@@ -331,7 +357,8 @@ export async function avaliarSimulacao(sim) {
   const texto = transcript.map(t => {
     if (t.role === 'lead') return `LEAD: ${t.text}`;
     const tools = (t.tools || []).map(x => x.name).join(', ');
-    return `ATENDENTE MAX [etapa ${t.etapa}${tools ? ` | tools: ${tools}` : ''}]: ${t.text}${(t.eventos || []).map(e => `\n${e}`).join('')}`;
+    const meta = [t.etapa ? `etapa ${t.etapa}` : null, tools ? `tools: ${tools}` : null].filter(Boolean).join(' | ');
+    return `ATENDENTE MAX${meta ? ` [${meta}]` : ''}: ${t.text}${(t.eventos || []).map(e => `\n${e}`).join('')}`;
   }).join('\n\n');
 
   const resp = await anthropic.messages.create({

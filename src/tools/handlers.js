@@ -5,7 +5,11 @@ import * as Lead from '../models/lead.model.js';
 import * as Reservation from '../models/reservation.model.js';
 
 // Sequência oficial do funil. O robô só pode avançar para a etapa imediatamente seguinte.
-const STAGE_ORDER = ['qualif', 'apres', 'quente', 'negociacao', 'contrato', 'pagamento', 'ganho'];
+const STAGE_ORDER = ['qualif', 'apres', 'quente', 'negociacao', 'contrato', 'assinatura', 'pagamento', 'ganho'];
+
+// Etapas em que a IA é desligada ao entrar (atendimento humano assume).
+// contrato/assinatura = fase de contrato, conduzida pela equipe; ganho = fechado.
+const DESLIGA_IA = ['contrato', 'assinatura', 'ganho'];
 
 // Desvios (estacionamento): a próxima etapa ao retomar o lead.
 // - morno: volta para negociacao (etapa após quente).
@@ -133,12 +137,13 @@ export const HANDLERS = {
         erro: `Avanço bloqueado: de "${ctx.lead.stage}" o próximo permitido é "${allowed}", não "${input.stage}". O robô só avança uma etapa por vez.`,
       };
     }
-    // GANHO = atendimento humano: a IA desliga junto (a resposta final desta
-    // rodada ainda sai; a partir da próxima mensagem o humano assume).
+    // Contrato/assinatura/ganho = atendimento humano: a IA desliga junto (a
+    // resposta final desta rodada ainda sai; da próxima mensagem o humano assume).
     const patch = { stage: input.stage };
-    if (input.stage === 'ganho') patch.ai_enabled = false;
+    const desliga = DESLIGA_IA.includes(input.stage);
+    if (desliga) patch.ai_enabled = false;
     await Lead.update(ctx.lead.id, patch);
-    return { ok: true, stage: input.stage, ...(input.stage === 'ganho' ? { ia_pausada: true } : {}) };
+    return { ok: true, stage: input.stage, ...(desliga ? { ia_pausada: true } : {}) };
   },
 
   async enviar_midia(input, ctx) {

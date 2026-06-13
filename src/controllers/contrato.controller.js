@@ -3,8 +3,11 @@ import * as Lead from '../models/lead.model.js';
 import { zapi } from '../services/zapi.service.js';
 import { gerarContratoPdf, uploadPdf, limparWorkDir } from '../services/contrato.service.js';
 
-const MSG_CONTRATO =
-  'Segue contrato em anexo, leia por gentileza, confira se os dados estão corretos e assine pelo Gov.br, em seguida envie de volta para a nossa assinatura.';
+// Mensagem que acompanha o contrato. Personalizada com o primeiro nome do lead.
+function msgContrato(nome) {
+  const primeiro = (nome || '').trim().split(/\s+/)[0] || '';
+  return `${primeiro ? primeiro + ', ' : ''}segue contrato elaborado, por gentileza confirme os dados, me confirme que está tudo ok.`;
+}
 
 // GET /api/v1/leads/:id/contrato — gera e devolve o PDF inline.
 export async function verContrato(req, res, next) {
@@ -41,9 +44,13 @@ export async function enviarContrato(req, res, next) {
 
     const fileName = `Contrato Vila Mundaí - ${lead.nome || 'lead ' + lead.id}.pdf`;
     await zapi.sendDocument(lead.phone, url, fileName);
-    await zapi.sendText(lead.phone, MSG_CONTRATO);
+    await zapi.sendText(lead.phone, msgContrato(lead.nome));
 
-    res.json({ ok: true, url, enviado_para: lead.phone });
+    // Contrato enviado: move para Assinatura e mantém a IA desligada (a etapa de
+    // assinatura é conduzida pela equipe). As próximas etapas ficam para depois.
+    await Lead.update(lead.id, { stage: 'assinatura', ai_enabled: false });
+
+    res.json({ ok: true, url, enviado_para: lead.phone, stage: 'assinatura' });
   } catch (e) {
     console.error('[contrato] enviarContrato erro:', e.message);
     res.status(500).json({ error: e.message });

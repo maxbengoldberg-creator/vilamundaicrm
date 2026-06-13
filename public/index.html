@@ -387,6 +387,7 @@ const COLS=[
   {id:'quente',nome:'Lead Quente',cor:'#fbbf24'},
   {id:'negociacao',nome:'Negociação',cor:'#fb923c'},
   {id:'contrato',nome:'Contrato',cor:'#2dd4bf'},
+  {id:'assinatura',nome:'Assinatura',cor:'#22d3ee'},
   {id:'pagamento',nome:'Pagamento',cor:'#a78bfa'},
   {id:'ganho',nome:'Ganho',cor:'#34d399'},
   {id:'sem_datas',nome:'Sem datas',cor:'#94a3b8'},
@@ -537,28 +538,40 @@ function bizCard(b){return `<div class="biz" draggable="true" data-id="${b.id}" 
       <button onclick="event.stopPropagation();abrirPromptLead(${b.id},'${b.phone}')" title="Enviar instrução ao agente" style="background:rgba(79,143,247,.15);border:1px solid rgba(79,143,247,.35);border-radius:5px;color:#7fb0ff;font-size:10px;font-weight:700;padding:2px 7px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:3px"><i class="ti ti-terminal-2" style="font-size:12px"></i>Prompt</button>
     </span>
   </div>
-  ${b.stage==='contrato'?`<div style="display:flex;gap:6px;border-top:1px solid var(--line);padding-top:8px;margin-top:4px">
-    <button onclick="event.stopPropagation();verContrato(${b.id})" title="Ver contrato em PDF" style="flex:1;background:rgba(45,212,191,.15);border:1px solid rgba(45,212,191,.4);border-radius:6px;color:#2dd4bf;font-size:11px;font-weight:700;padding:5px 0;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:4px"><i class="ti ti-file-text" style="font-size:13px"></i>Ver contrato</button>
+  ${(b.stage==='contrato'||b.stage==='assinatura')?`<div style="display:flex;gap:6px;border-top:1px solid var(--line);padding-top:8px;margin-top:4px">
+    <button onclick="event.stopPropagation();verContrato(${b.id},'${(b.nome||'').replace(/[\\'"]/g,' ').trim()}')" title="Salvar contrato em PDF" style="flex:1;background:rgba(45,212,191,.15);border:1px solid rgba(45,212,191,.4);border-radius:6px;color:#2dd4bf;font-size:11px;font-weight:700;padding:5px 0;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:4px"><i class="ti ti-file-download" style="font-size:13px"></i>Ver contrato</button>
     <button onclick="event.stopPropagation();enviarContrato(${b.id},'${b.phone}')" title="Enviar contrato por WhatsApp" style="flex:1;background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.4);border-radius:6px;color:#34d399;font-size:11px;font-weight:700;padding:5px 0;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:4px"><i class="ti ti-send" style="font-size:13px"></i>Enviar contrato</button>
   </div>`:''}
 </div>`}
-async function verContrato(id){
+async function verContrato(id,nome){
   toast('Gerando contrato…');
   try{
     const r=await fetch(`${API_URL}/api/v1/leads/${id}/contrato`,{headers:{'x-api-key':API_KEY}});
     if(!r.ok)throw new Error(await r.text());
     const blob=await r.blob();
+    const fname=`Contrato Vila Mundai - ${(nome||('lead '+id)).trim()}.pdf`;
+    // Chrome/Edge: deixa o CEO escolher a pasta onde salvar o PDF.
+    if(window.showSaveFilePicker){
+      try{
+        const h=await window.showSaveFilePicker({suggestedName:fname,types:[{description:'PDF',accept:{'application/pdf':['.pdf']}}]});
+        const w=await h.createWritable();await w.write(blob);await w.close();
+        toast('Contrato salvo em PDF');return;
+      }catch(e){if(e&&e.name==='AbortError'){return;}/* sem suporte: cai no download abaixo */}
+    }
+    // Fallback: baixa direto para a pasta de downloads do navegador.
     const url=URL.createObjectURL(blob);
-    window.open(url,'_blank');
+    const a=document.createElement('a');a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),60000);
+    toast('Contrato baixado em PDF');
   }catch(e){toast('Erro ao gerar contrato',false);console.error(e);}
 }
 async function enviarContrato(id,phone){
-  if(!confirm('Enviar o contrato em PDF por WhatsApp para este lead?'))return;
+  if(!confirm('Enviar o contrato em PDF por WhatsApp? O lead vai para Assinatura e a IA fica desligada.'))return;
   toast('Gerando e enviando contrato…');
   try{
     await POST(`/api/v1/leads/${id}/contrato/enviar`,{});
-    toast('Contrato enviado por WhatsApp');
+    toast('Contrato enviado — lead movido para Assinatura');
+    if(S.view==='pipelines')await vPipelines();
   }catch(e){toast('Erro ao enviar contrato',false);console.error(e);}
 }
 async function toggleAICard(id){
@@ -694,9 +707,9 @@ async function vLeads(){
 /* ============================================================
    AUTOMAÇÕES — Editor de prompts por etapa
    ============================================================ */
-const STAGE_ORDER=['qualif','apres','quente','negociacao','contrato','pagamento','ganho','sem_datas','morno'];
-const STAGE_COR={qualif:'#4f8ff7',apres:'#9b87f5',quente:'#fbbf24',negociacao:'#fb923c',contrato:'#2dd4bf',pagamento:'#a78bfa',ganho:'#34d399',sem_datas:'#94a3b8',morno:'#64748b'};
-const STAGE_IC={qualif:'ti-user-question',apres:'ti-presentation',quente:'ti-flame',negociacao:'ti-scale',contrato:'ti-file-text',pagamento:'ti-credit-card',ganho:'ti-trophy',sem_datas:'ti-calendar-off',morno:'ti-snowflake'};
+const STAGE_ORDER=['qualif','apres','quente','negociacao','contrato','assinatura','pagamento','ganho','sem_datas','morno'];
+const STAGE_COR={qualif:'#4f8ff7',apres:'#9b87f5',quente:'#fbbf24',negociacao:'#fb923c',contrato:'#2dd4bf',assinatura:'#22d3ee',pagamento:'#a78bfa',ganho:'#34d399',sem_datas:'#94a3b8',morno:'#64748b'};
+const STAGE_IC={qualif:'ti-user-question',apres:'ti-presentation',quente:'ti-flame',negociacao:'ti-scale',contrato:'ti-file-text',assinatura:'ti-signature',pagamento:'ti-credit-card',ganho:'ti-trophy',sem_datas:'ti-calendar-off',morno:'ti-snowflake'};
 
 async function vAutomations(){
   const [stagesRaw,insights,regras]=await Promise.all([

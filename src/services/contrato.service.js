@@ -19,12 +19,28 @@ const PYTHON = process.env.PYTHON_BIN || 'python3';
 // ── Helpers de formatação ────────────────────────────────────────────────────
 
 function dataBR(valor) {
-  // Aceita AAAA-MM-DD ou ISO; devolve DD/MM/AAAA. Vazio vira "____".
+  // Aceita AAAA-MM-DD, ISO ou objeto Date (o Postgres devolve colunas date como
+  // Date — sem este tratamento virava "Mon Jul 27 2026 ... GMT" no contrato).
+  // Devolve sempre DD/MM/AAAA. Vazio vira "____".
   if (!valor) return '____';
+  if (valor instanceof Date && !Number.isNaN(valor.getTime())) {
+    const d = String(valor.getUTCDate()).padStart(2, '0');
+    const mes = String(valor.getUTCMonth() + 1).padStart(2, '0');
+    return `${d}/${mes}/${valor.getUTCFullYear()}`;
+  }
   const s = String(valor).slice(0, 10);
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (m) return `${m[3]}/${m[2]}/${m[1]}`;
   return String(valor);
+}
+
+// CPF no padrão 035.342.715-21. Aceita com ou sem pontuação; se não tiver 11
+// dígitos, devolve o que veio (não inventa).
+function cpfBR(valor) {
+  if (!valor) return '____';
+  const d = String(valor).replace(/\D/g, '');
+  if (d.length !== 11) return String(valor);
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 }
 
 function moedaBR(valor) {
@@ -41,11 +57,26 @@ function noites(checkin, checkout) {
   return d > 0 ? d : null;
 }
 
-// "1 Quarto - Superior" / "2 Quartos - Térreo" → "01 apartamento de 1 quarto"
+// Quais tipos a reserva contempla. Por enquanto a ficha guarda UMA acomodação;
+// se um dia descrever os dois ("1 e 2 quartos"), ambos entram.
+function tiposApartamento(acomodacao) {
+  const s = String(acomodacao || '');
+  const dois = /2\s*quart|dois\s*quart/i.test(s);
+  const um = /1\s*quart|um\s*quart/i.test(s);
+  // Sem acomodação reconhecível: assume 1 quarto (caso mais comum) para não
+  // deixar o contrato sem descrição.
+  if (!dois && !um) return { inc_1q: true, inc_2q: false };
+  return { inc_1q: um, inc_2q: dois };
+}
+
+// "1 Quarto - Superior" / "2 Quartos - Térreo" → "01 apartamento de 1 quarto".
+// Se a reserva contemplar os dois tipos, descreve ambos.
 function descreverApartamentos(acomodacao) {
-  if (!acomodacao) return '____';
-  const dois = /2\s*quart/i.test(acomodacao);
-  return dois ? '01 apartamento de 2 quartos' : '01 apartamento de 1 quarto';
+  const { inc_1q, inc_2q } = tiposApartamento(acomodacao);
+  const partes = [];
+  if (inc_1q) partes.push('01 apartamento de 1 quarto');
+  if (inc_2q) partes.push('01 apartamento de 2 quartos');
+  return partes.length ? partes.join(' e ') : '____';
 }
 
 const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
@@ -64,16 +95,19 @@ export function montarContexto(lead) {
 
   const n = noites(lead.checkin, lead.checkout);
   const hoje = new Date();
+  const tipos = tiposApartamento(lead.acomodacao);
 
   return {
     nome: lead.nome || '____',
-    cpf: lead.cpf || '____',
+    cpf: cpfBR(lead.cpf),
     data_nascimento: dataBR(lead.data_nascimento),
     checkin: dataBR(lead.checkin),
     checkout: dataBR(lead.checkout),
     quantidade_dias: n != null ? String(n) : '____',
     quantidade_pessoas: lead.guests != null ? String(lead.guests) : '____',
     apartamentos: descreverApartamentos(lead.acomodacao),
+    inc_1q: tipos.inc_1q,
+    inc_2q: tipos.inc_2q,
     valor_total: moedaBR(total),
     valor_sinal: moedaBR(sinal),
     valor_residual: moedaBR(residual),

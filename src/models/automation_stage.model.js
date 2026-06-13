@@ -158,6 +158,16 @@ Se o lead tiver dúvidas sobre o contrato: esclareça de forma simples e objetiv
 Se precisar escalar: use escalar_humano.`,
   },
   {
+    stage: 'assinatura',
+    nome: 'Assinatura',
+    descricao: 'Contrato enviado, aguardando assinatura do lead. Conduzido pela equipe (IA desligada).',
+    prompt_body: `${HEADER}
+
+ETAPA: ASSINATURA
+O contrato já foi enviado ao lead e a etapa é conduzida pela equipe humana. A IA fica desligada aqui.
+Se por algum motivo precisar responder: apenas confirme que o contrato foi enviado e que a equipe acompanha a assinatura. Não retome vendas nem refaça orçamento.`,
+  },
+  {
     stage: 'pagamento',
     nome: 'Pagamento',
     descricao: 'Solicita e confirma o sinal de 30% para fechar a reserva.',
@@ -334,6 +344,7 @@ export async function seedIfEmpty() {
     quente:     { blocked_tags: ['ganho'] },
     negociacao: { blocked_tags: ['ganho'] },
     contrato:   { blocked_tags: ['ganho'] },
+    assinatura: { blocked_tags: ['ganho'] },
     pagamento:  { blocked_tags: ['ganho'] },
     ganho:      { required_tags: ['ganho'], blocked_tags: [] },
     morno:      { blocked_tags: ['ganho'] },

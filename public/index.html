@@ -1470,8 +1470,18 @@ async function avaliarCasoReal(){
   if(!r.ok){toast(r.erro||'não foi possível avaliar',false);return}
   S.sims=await GET('/api/v1/gerente/simulacoes').catch(()=>S.sims);
   const l=document.getElementById('simList');if(l)l.innerHTML=simListHTML();
-  await abrirSim(r.simulacao_id);
-  toast(`Avaliado — nota ${r.nota_geral}/10 (${r.turnos} turnos)`);
+  mostrarRelatorioModal(r,nome,r.turnos);
+}
+// Mostra só a ANÁLISE num modal (não despeja o diálogo no painel).
+function mostrarRelatorioModal(r,nome,turnos){
+  openModal(`<div class="modal-h"><div class="ic" style="background:rgba(45,212,191,.18);color:var(--teal)"><i class="ti ti-report-search" style="font-size:20px"></i></div>
+    <div><h3>Avaliação — ${escHtml(nome||'caso real')}</h3><p>Análise do Gerente Max${turnos?` · ${turnos} turnos`:''}</p></div>
+    <span class="x" onclick="closeModal()"><i class="ti ti-x"></i></span></div>
+  <div class="modal-b">${simRelHTML(r)}</div>
+  <div class="modal-foot">
+    <span style="flex:1;font-size:10.5px;color:var(--txt-3)">As sugestões também ficam em Fluxos e Laboratório, prontas para editar e aplicar.</span>
+    <button class="btn ghost" onclick="closeModal()">Fechar</button>
+  </div>`);
 }
 async function novaSimulacao(){
   const nome=document.getElementById('simNome')?.value?.trim()||null;
@@ -1493,9 +1503,14 @@ async function apagarSim(id){
   await vGerente();
 }
 async function abrirSim(id){
-  S.simAtiva=id;
   const sim=await GET(`/api/v1/gerente/simulacoes/${id}`).catch(()=>null);
   if(!sim)return;
+  // Caso real: é uma avaliação de diálogo, não um chat — mostra só a análise.
+  if(sim.perfil&&sim.perfil.modo==='caso_real'){
+    mostrarRelatorioModal(sim.relatorio||{ok:false,erro:'sem relatório'},sim.nome,(sim.transcript||[]).length);
+    return;
+  }
+  S.simAtiva=id;
   S.simData=sim;
   document.querySelectorAll('#simList .cv').forEach(el=>el.classList.toggle('active',sameId(el.dataset.id,id)));
   const head=document.getElementById('simHead');
@@ -1554,6 +1569,7 @@ function simRelHTML(r){
   </div>`).join('');
   return `<div style="text-align:left">
     <div style="display:flex;align-items:center;gap:7px"><span style="font-size:10px;font-weight:700;color:var(--txt-3)">NOTA</span><b style="color:${cor};font-size:16px">${r.nota_geral}/10</b></div>
+    ${r.resumo?`<div style="font-size:11.5px;color:var(--txt-2);margin-top:6px;line-height:1.5">${escHtml(r.resumo)}</div>`:''}
     ${sec('ERROS',r.erros,'var(--red)')}
     ${sec('OPORTUNIDADES PERDIDAS',r.oportunidades_perdidas,'var(--amber)')}
     ${sec('PONTOS FORTES',r.pontos_fortes,'var(--green)')}

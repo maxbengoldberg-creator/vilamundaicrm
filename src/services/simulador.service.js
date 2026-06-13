@@ -223,12 +223,22 @@ CLASSIFIQUE cada sugestão pela NATUREZA do problema (campo "camada"):
 - "c3_regra": regra de condução que vale em QUALQUER etapa (quando dar preço, não repetir, ritmo de perguntas, coleta de dados)
 - "c4_etapa": roteiro/fluxo de UMA etapa específica (informe a etapa)
 
-Responda APENAS JSON válido:
+SEJA CONCISO: no máximo 6 sugestões, frases curtas. Responda SOMENTE com o JSON (sem markdown, sem texto antes ou depois):
 {"nota_geral": 0-10,
+ "resumo": "1-2 frases sobre como foi a condução no geral",
  "erros": ["..."],
  "oportunidades_perdidas": ["..."],
  "pontos_fortes": ["..."],
  "sugestoes": [{"camada": "c1_tom|c2_fato|c3_regra|c4_etapa", "etapa": "qualif|apres|quente|negociacao|contrato|pagamento|ganho|morno|geral", "problema": "...", "ajuste_sugerido": "texto pronto para adicionar/alterar"}]}`;
+
+// Parser tolerante: tira cercas de markdown e extrai o objeto JSON.
+function parseJsonRelatorio(raw) {
+  let t = String(raw || '').trim().replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
+  try { return JSON.parse(t); } catch {}
+  const i = t.indexOf('{'); const j = t.lastIndexOf('}');
+  if (i >= 0 && j > i) { try { return JSON.parse(t.slice(i, j + 1)); } catch {} }
+  return null;
+}
 
 // ===== Ator-lead (Fase 1.5): IA interpreta o lead na simulação =====
 // Lead REAL é curto, objetivo e imprevisível — o ator imita isso.
@@ -353,24 +363,30 @@ COMO LEAD REAL ESCREVE (siga à risca):
 
 export async function avaliarSimulacao(sim) {
   const transcript = sim.transcript || [];
-  if (transcript.length < 2) return { ok: false, erro: 'simulação muito curta para avaliar' };
-  const texto = transcript.map(t => {
+  if (transcript.length < 2) return { ok: false, erro: 'diálogo muito curto para avaliar' };
+  // Janela: últimos 60 turnos (controla o tamanho da entrada em diálogos longos).
+  const usados = transcript.slice(-60);
+  const texto = usados.map(t => {
     if (t.role === 'lead') return `LEAD: ${t.text}`;
     const tools = (t.tools || []).map(x => x.name).join(', ');
     const meta = [t.etapa ? `etapa ${t.etapa}` : null, tools ? `tools: ${tools}` : null].filter(Boolean).join(' | ');
     return `ATENDENTE MAX${meta ? ` [${meta}]` : ''}: ${t.text}${(t.eventos || []).map(e => `\n${e}`).join('')}`;
   }).join('\n\n');
 
-  const resp = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 1500,
-    system: RUBRICA,
-    messages: [{ role: 'user', content: `Lead virtual final: ${JSON.stringify(sim.lead_json)}\n\nTRANSCRIPT:\n${texto}` }],
-  });
-  const raw = resp.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
-  try {
-    return { ok: true, ...JSON.parse(raw.replace(/^```json\s*|```\s*$/g, '').trim()) };
-  } catch {
-    return { ok: false, erro: 'avaliador não retornou JSON válido', raw };
+  // Tenta até 2 vezes; segunda com instrução extra de "apenas JSON".
+  let raw = '';
+  for (let tentativa = 0; tentativa < 2; tentativa++) {
+    const reforco = tentativa === 0 ? '' : '\n\nIMPORTANTE: responda APENAS o objeto JSON, sem nenhum texto fora dele.';
+    const resp = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 3000,
+      system: RUBRICA + reforco,
+      messages: [{ role: 'user', content: `Lead virtual final: ${JSON.stringify(sim.lead_json)}\n\nTRANSCRIPT:\n${texto}` }],
+    });
+    raw = resp.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
+    const parsed = parseJsonRelatorio(raw);
+    if (parsed) return { ok: true, ...parsed };
   }
+  console.error('[avaliador] JSON inválido após 2 tentativas. Início:', raw.slice(0, 200));
+  return { ok: false, erro: 'O avaliador não conseguiu estruturar a resposta. Tente novamente (diálogos muito longos podem falhar).' };
 }

@@ -48,9 +48,15 @@ O preço SEMPRE vem do PMS, que aplica tarifa da faixa de datas + desconto por o
 - Swagger: https://pms.hospedin.com/api-docs/v1/swagger.yaml
 - Endpoints internos do CRM: POST /api/v1/pms/cotacao (cotação nativa) e DELETE /api/v1/pms/reservations/:id
 
-## Funil (9 colunas no Kanban)
+## Modo do agente (Modelo 1 vs Modelo 2)
+Seletor na aba Agente (setting `agent_mode`, só um ativo por vez, troca sem deploy via /agent/mode):
+- **Modelo 1** (padrão): corpo do prompt = `prompt_body` da etapa (aba Fluxos).
+- **Modelo 2**: corpo = camadas do Laboratório compostas em runtime (C1 identidade + C2 fatos + ficha + C4 da etapa).
+A única diferença entre os modos é o CORPO por etapa. As **regras de condução** (REGRA_PRECO no código, ou C3 publicada) e o bloco "JÁ ACONTECEU" são SEMPRE anexados — compartilhados pelos dois modos. Logo, regra de conduta nova vai em REGRA_PRECO e vale nos dois. O Simulador testa só rascunhos no formato Modelo 1.
+
+## Funil (colunas no Kanban)
 qualif → apres → quente → negociacao → contrato → pagamento → ganho
-Desvios passivos (estacionamento manual, IA desligada automaticamente, sem automação): **morno** e **frio**.
+Desvios: **sem_datas** (lead sem datas definidas — IA fica leve e à disposição, reengaja quando o lead trouxer datas; robô estaciona aqui a partir de qualif/apres após no máx 2 perguntas de data; de sem_datas volta a qualif), **morno** e **frio** (passivos, IA off).
 - Robô avança UMA etapa por vez (trava server-side); não conhece "frio".
 - Humano move livre: Kanban, modal, ou seletor de etapa na ficha do chat.
 - Tag "ganho" força stage ganho; criar_reserva tem trava de acomodação (ficha do lead).

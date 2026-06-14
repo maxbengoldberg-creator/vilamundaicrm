@@ -2,6 +2,18 @@ import { handleIncoming, persistOutboundHuman } from '../services/agent.service.
 import * as Lead from '../models/lead.model.js';
 import { query } from '../config/db.js';
 
+// Registro em memória dos últimos webhooks recebidos (diagnóstico de conexão:
+// ver se o clique do anúncio / a mensagem do lead chega até o servidor).
+// Volátil (some em redeploy) — serve para depurar em tempo real.
+const _hits = [];
+function logHit(h) {
+  _hits.unshift({ ts: new Date().toISOString(), ...h });
+  if (_hits.length > 40) _hits.pop();
+}
+export function webhookLog(req, res) {
+  res.json({ total: _hits.length, hits: _hits });
+}
+
 // Resolve a identidade do remetente. O WhatsApp às vezes entrega o contato
 // como "@lid" (identificador de privacidade) em vez do número. Mapeamos o LID
 // ao telefone real (guardado no lead) para a mesma pessoa não virar 2 contatos.
@@ -42,7 +54,6 @@ export async function whatsappWebhook(req, res) {
 
     // Resolve telefone real + LID (trata o caso "@lid").
     const { phone, lid } = await resolverContato(body);
-    if (!phone) return;
 
     // Extrai o texto (Z-API: text.message). Outros tipos podemos tratar depois.
     const text =
@@ -50,6 +61,11 @@ export async function whatsappWebhook(req, res) {
       body.message?.text ||
       body.body ||
       null;
+
+    // Registra o hit (diagnóstico): toda mensagem que chega aparece aqui.
+    logHit({ tipo: 'whatsapp', phone: phone || body.phone || '?', fromMe: !!body.fromMe, texto: (text || '(sem texto)').slice(0, 80) });
+
+    if (!phone) return;
 
     if (!text) {
       // Mídia/áudio/etc. — opcionalmente avise o time. Por ora, ignora.
@@ -78,6 +94,8 @@ export async function whatsappWebhook(req, res) {
 // ==========================================================
 export async function metaLeadsWebhook(req, res) {
   const body = req.body || {};
+
+  logHit({ tipo: 'meta-leads', phone: body.phone_number || body.telefone || '?', nome: body.nome_completo || body.full_name || '?', campos: Object.keys(body).length });
 
   if (!body.phone_number) {
     return res.status(400).json({ ok: false, error: 'phone_number obrigatório' });

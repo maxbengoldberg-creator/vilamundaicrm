@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireApiKey } from '../middleware/auth.js';
-import { whatsappWebhook, metaLeadsWebhook } from '../controllers/webhooks.controller.js';
+import { whatsappWebhook, metaLeadsWebhook, webhookLog } from '../controllers/webhooks.controller.js';
 import { runAgent, generateAutomation } from '../controllers/agent.controller.js';
 import * as crm from '../controllers/crm.controller.js';
 import * as clientes from '../controllers/clientes.controller.js';
@@ -30,6 +30,8 @@ api.post('/automations/generate', generateAutomation);
 
 // Status da conexão com a Z-API (diagnóstico)
 api.get('/zapi/status', crm.zapiStatus);
+// Últimos webhooks recebidos (diagnóstico: ver se o clique do anúncio chega)
+api.get('/webhooks/log', webhookLog);
 
 // Cotação nativa no PMS (cria pré-reserva sem valor; o PMS precifica)
 api.post('/pms/cotacao', crm.cotacaoPms);

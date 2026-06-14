@@ -3,6 +3,14 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 5.0 — 2026-06-14
+
+Revert: REGRA_PRECO volta à versão 4.8 (a pedido do CEO Max). Só o arquivo de
+regras (src/services/stage.prompts.js) foi revertido; todo o resto (login,
+dedup 9º dígito, avisos, diagnóstico Z-API) permanece. Observação: isso
+reintroduz o comportamento de o Modelo 2 não se apresentar e usar preâmbulos,
+que a 4.9 havia corrigido.
+
 ## Atualização 4.9 — 2026-06-14
 
 Enxuga a REGRA_PRECO + regra de preço exato (ataca a apresentação sumida e o

@@ -51,6 +51,10 @@ export const zapi = {
   status() {
     return get('/status');
   },
+  // Dados do aparelho conectado (inclui o número de telefone pareado).
+  device() {
+    return get('/device');
+  },
   // Webhooks configurados na Z-API (para conferir se o "ao receber" aponta para nós).
   webhooks() {
     return get('/webhooks');

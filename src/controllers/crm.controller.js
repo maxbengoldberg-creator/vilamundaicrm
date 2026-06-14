@@ -62,6 +62,8 @@ export async function zapiStatus(req, res) {
   const out = { instance_configurada: env.zapi.instanceId };
   try { out.status = await zapi.status(); }
   catch (e) { out.status_erro = e.response?.data || e.message; }
+  try { out.device = await zapi.device(); }
+  catch (e) { out.device_erro = e.response?.data || e.message; }
   try { out.webhooks = await zapi.webhooks(); }
   catch (e) { out.webhooks_erro = e.response?.data || e.message; }
   out.webhook_esperado = `${req.protocol}://${req.get('host')}/webhooks/whatsapp`;

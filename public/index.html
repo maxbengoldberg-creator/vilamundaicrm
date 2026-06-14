@@ -1692,13 +1692,15 @@ async function simAuto(){
 const NODE_META={trigger:{cls:'n-trigger',ic:'ti-player-play',k:'Gatilho'},ia:{cls:'n-ia',ic:'ti-robot',k:'Agente IA'},msg:{cls:'n-msg',ic:'ti-message-2',k:'Mensagem'},cond:{cls:'n-cond',ic:'ti-arrows-split',k:'Condição'},acao:{cls:'n-acao',ic:'ti-bolt',k:'Ação'},pms:{cls:'n-pms',ic:'ti-database-search',k:'PMS'},extrai:{cls:'n-extrai',ic:'ti-forms',k:'Extração IA'},fim:{cls:'n-fim',ic:'ti-flag',k:'Fim'}};
 
 async function vAgente(){
-  const [robot,stages,modeR]=await Promise.all([
+  const [robot,stages,modeR,notif]=await Promise.all([
     GET('/api/v1/robot/status').catch(()=>({enabled:true})),
     GET('/api/v1/automations/stages').catch(()=>[]),
     GET('/api/v1/agent/mode').catch(()=>({mode:'modelo1'})),
+    GET('/api/v1/notify/lead').catch(()=>({enabled:false,phone:''})),
   ]);
   const on=robot.enabled!==false;
   const mode=modeR.mode==='modelo2'?'modelo2':'modelo1';
+  const nOn=notif.enabled===true, nPhone=notif.phone||'';
   const modoCard=(id,titulo,desc,ic)=>{
     const ativo=mode===id;
     return `<div onclick="setAgentMode('${id}')" style="flex:1;cursor:pointer;display:flex;gap:11px;align-items:flex-start;padding:14px;border-radius:10px;border:1.5px solid ${ativo?'var(--blue)':'var(--line-2)'};background:${ativo?'var(--blue-soft)':'var(--surf-2)'};transition:.15s">
@@ -1719,6 +1721,19 @@ async function vAgente(){
         ${modoCard('modelo1','Modelo 1 — Prompts por etapa','Um prompt completo por etapa do funil (aba Fluxos). Formato atual, em produção.','ti-list-details')}
         ${modoCard('modelo2','Modelo 2 — Camadas','Monta o prompt das camadas do Laboratório (C1 identidade, C2 fatos, C4 etapa). As regras de condução são compartilhadas pelos dois modos.','ti-stack-2')}
       </div>
+    </div>
+    <div class="card cpad" style="max-width:860px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <i class="ti ti-bell-ring" style="font-size:20px;color:var(--blue)"></i>
+        <h2 style="font-size:16px;margin:0">Avisar novo lead no meu WhatsApp</h2>
+        <span class="switch ${nOn?'':'off'}" style="margin-left:auto" onclick="toggleNotifyLead(this)"></span>
+      </div>
+      <p style="font-size:12px;color:var(--txt-3);margin-bottom:12px">Quando um lead novo manda a primeira mensagem, você recebe um WhatsApp no número abaixo.</p>
+      <div style="display:flex;gap:9px;align-items:center">
+        <input id="notifyPhone" value="${nPhone}" placeholder="Seu número com DDD (ex: 5538999999999)" style="flex:1;height:38px;background:var(--surf);border:1px solid var(--line-2);border-radius:8px;color:var(--txt);font-size:13px;padding:0 12px;font-family:inherit">
+        <button class="btn blue" onclick="salvarNotifyLead()"><i class="ti ti-device-floppy"></i> Salvar</button>
+      </div>
+      <p style="font-size:10.5px;color:var(--txt-3);margin-top:8px">Use um número diferente do número do robô. O aviso sai do próprio WhatsApp da Vila.</p>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:860px">
       <div class="card cpad">
@@ -1766,6 +1781,26 @@ async function setAgentMode(mode){
     toast(r.mode==='modelo2'?'Agora usando Modelo 2 (camadas)':'Agora usando Modelo 1 (prompts por etapa)');
     await vAgente();
   }catch(e){toast('Erro ao trocar de modo',false)}
+}
+async function salvarNotifyLead(){
+  const phone=document.getElementById('notifyPhone')?.value?.trim()||'';
+  const sw=document.querySelector('.card .switch[onclick*="toggleNotifyLead"]');
+  const enabled=sw?!sw.classList.contains('off'):true;
+  try{
+    const r=await POST('/api/v1/notify/lead',{phone,enabled:enabled&&!!phone});
+    toast(r.enabled?'Aviso de novo lead ativado':'Número salvo (aviso desligado)');
+    await vAgente();
+  }catch(e){toast(e.message||'Erro ao salvar',false)}
+}
+async function toggleNotifyLead(el){
+  const novo=el.classList.contains('off');
+  el.classList.toggle('off');
+  const phone=document.getElementById('notifyPhone')?.value?.trim()||'';
+  if(novo&&!phone){toast('Digite seu número primeiro',false);el.classList.add('off');return}
+  try{
+    const r=await POST('/api/v1/notify/lead',{phone,enabled:novo});
+    toast(r.enabled?'Aviso de novo lead ativado':'Aviso desligado');
+  }catch(e){toast('Erro ao alterar',false);el.classList.toggle('off')}
 }
 
 async function gerarFluxo(){

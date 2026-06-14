@@ -113,6 +113,10 @@ api.post("/robot/status", clientes.setRobotStatus);
 api.get('/agent/mode', clientes.getAgentMode);
 api.post('/agent/mode', clientes.setAgentMode);
 
+// Aviso de novo lead no WhatsApp pessoal do dono
+api.get('/notify/lead', clientes.getNotifyLead);
+api.post('/notify/lead', clientes.setNotifyLead);
+
 router.use('/api/v1', api);
 
 export default router;

@@ -107,6 +107,29 @@ export async function setRobotStatus(req, res, next) {
   } catch (e) { next(e); }
 }
 
+// ===== AVISO DE NOVO LEAD NO WHATSAPP PESSOAL =====
+
+export async function getNotifyLead(req, res, next) {
+  try {
+    res.json({
+      enabled: (await Setting.get('notify_lead_enabled', false)) === true,
+      phone: (await Setting.get('notify_lead_phone', '')) || '',
+    });
+  } catch (e) { next(e); }
+}
+
+export async function setNotifyLead(req, res, next) {
+  try {
+    let phone = String(req.body.phone || '').replace(/\D/g, '');
+    if (phone && !phone.startsWith('55')) phone = '55' + phone;
+    if (phone && phone.length < 12) return res.status(400).json({ error: 'telefone inválido (use DDD + número)' });
+    const enabled = !!req.body.enabled && !!phone;
+    await Setting.set('notify_lead_phone', phone || '');
+    await Setting.set('notify_lead_enabled', enabled);
+    res.json({ ok: true, enabled, phone: phone || '' });
+  } catch (e) { next(e); }
+}
+
 // ===== MODO DO AGENTE: modelo1 (prompts por etapa) | modelo2 (camadas) =====
 // Apenas um modo ativo por vez. Vale em produção (o Atendente Max em si).
 

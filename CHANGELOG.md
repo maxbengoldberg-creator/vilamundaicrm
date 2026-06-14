@@ -3,6 +3,16 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 4.6 — 2026-06-14
+
+Aviso de novo lead no WhatsApp pessoal do dono.
+
+- Quando um lead NOVO manda a primeira mensagem (`handleIncoming`), o dono recebe
+  um WhatsApp via Z-API. Fire-and-forget, não atrasa a resposta ao lead.
+- Configurável na aba Agente: número pessoal + liga/desliga (settings
+  `notify_lead_phone` / `notify_lead_enabled`). Endpoints `GET/POST /notify/lead`.
+- Não avisa em mensagens de operador nem se o número do aviso for o do próprio lead.
+
 ## Atualização 4.5 — 2026-06-14
 
 Corrige duplicação de contato pelo 9º dígito (BR) e nome não gravado.

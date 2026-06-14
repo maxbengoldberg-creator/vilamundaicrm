@@ -142,6 +142,25 @@ export async function mergePhoneDuplicates(lead) {
   return { merged: dups.length > 0, dups: dups.length, mensagens: total };
 }
 
+// Avisa o dono no WhatsApp pessoal quando um lead NOVO aparece. Configurável
+// na aba Agente (settings notify_lead_enabled / notify_lead_phone). Fire-and-forget.
+async function notificarNovoLead(lead, primeiraMsg) {
+  try {
+    const enabled = await Setting.get('notify_lead_enabled', false);
+    const dest = String((await Setting.get('notify_lead_phone', '')) || '').replace(/\D/g, '');
+    if (enabled !== true || !dest) return;
+    // Não avisa se o "lead novo" é o próprio número de aviso (teste do dono).
+    if (Lead.formasPhoneBR(lead.phone).includes(dest)) return;
+    const nome = lead.nome || 'sem nome';
+    const preview = String(primeiraMsg || '').replace(/\s+/g, ' ').slice(0, 160);
+    const msg = `Novo lead na Vila Mundaí\nNome: ${nome}\nTelefone: ${lead.phone}${preview ? `\nMensagem: "${preview}"` : ''}`;
+    await zapi.sendText(dest, msg);
+    console.log(`[notify] dono avisado de novo lead ${lead.id} (${lead.phone})`);
+  } catch (e) {
+    console.error('[notify] aviso de novo lead falhou:', e.message);
+  }
+}
+
 export async function mergeLidOrphans(leadReal, lid) {
   try {
     const orphanPhone = `${lid}@lid`;
@@ -297,6 +316,7 @@ export async function handleIncoming({ phone, text, pushName, lid = null, operad
   // no funil (qualificação) e em Atendimentos.
   // Identidade tolerante ao 9º dígito (12 vs 13): a mesma pessoa não vira 2 leads.
   let lead = await Lead.findByPhoneFlex(phone);
+  const isNovoLead = !lead;
   if (!lead) lead = await Lead.create({ phone, nome: pushName || null, origem: 'whatsapp' });
   // Grava/atualiza o nome quando o pushName chega (ou é mais completo).
   if (pushName) {
@@ -305,6 +325,8 @@ export async function handleIncoming({ phone, text, pushName, lid = null, operad
   }
   // Funde qualquer duplicado do mesmo número que difere só pelo 9º dígito.
   await mergePhoneDuplicates(lead);
+  // Lead novo (primeira mensagem): avisa o dono no WhatsApp pessoal.
+  if (isNovoLead && !operador) notificarNovoLead(lead, text);
 
   // Guarda o LID no lead de telefone REAL e FUNDE qualquer contato provisório
   // "@lid" desta mesma pessoa (mensagens passam para a conversa real).

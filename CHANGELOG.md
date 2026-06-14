@@ -3,6 +3,21 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 4.9 — 2026-06-14
+
+Enxuga a REGRA_PRECO + regra de preço exato (ataca a apresentação sumida e o
+preço transcrito errado no Modelo 2).
+
+- REGRA_PRECO condensada de ~8.800 para ~4.165 chars (todas as regras mantidas,
+  só o texto mais enxuto; exemplos verbosos removidos). Removido o trecho "estas
+  regras valem SOBRE as instruções de etapa", que atropelava a apresentação das
+  camadas (C1/C4) no Modelo 2.
+- Nova regra: apresentar o preço EXATAMENTE como a ferramenta devolveu
+  (total_formatado de cada opção), nunca recalcular/arredondar/trocar valores —
+  corrige casos como 1Q superior saindo R$517 em vez de R$868.
+
+Reversível: voltar para a tag atualizacao-4.8 se não ficar bom.
+
 ## Atualização 4.8 — 2026-06-14
 
 Login real no painel + chave da API fora do HTML (etapa 1 do app no celular).

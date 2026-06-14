@@ -3,6 +3,22 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 4.4 — 2026-06-14
+
+Corrige preço errado ao cotar vários tipos de uma vez (ex.: 1Q superior saindo
+o dobro do térreo).
+
+**Causa:** `consultar_disponibilidade` criava as pré-reservas temporárias de
+todos os tipos em paralelo (`Promise.all`). O PMS precifica cada reserva pela
+ocupação do momento, então as pré-reservas irmãs (criadas no mesmo instante)
+inflavam a ocupação e contaminavam o preço umas das outras. Reproduzido: em
+paralelo o 2Q saía R$750/R$1050 (errado) e as 4 reservas vinham com o mesmo
+código; sequencial dava R$810/R$960 (correto).
+
+**Correção (`src/tools/handlers.js`):** cotação SEQUENCIAL — cria, lê e cancela
+uma pré-reserva por vez, só então o próximo tipo. Cada cotação enxerga só a
+ocupação real. (Custa um pouco mais de tempo, mas o preço fica correto.)
+
 ## Atualização 4.3 — 2026-06-14
 
 Funil "Reveillon" + bloqueio de cotação para datas de virada de ano.

@@ -126,7 +126,13 @@ export const HANDLERS = {
       }
       return { ok: false };
     };
-    const cotacoes = await Promise.all(r.disponiveis.map(cotarComRetry));
+    // SEQUENCIAL (nunca em paralelo): o PMS precifica cada pré-reserva pela
+    // ocupação do momento. Cotar vários tipos ao mesmo tempo faz as pré-reservas
+    // temporárias irmãs inflarem a ocupação e contaminarem o preço umas das
+    // outras (ex.: 1Q superior saindo o dobro). Uma de cada vez: cria, lê,
+    // cancela, só então o próximo tipo.
+    const cotacoes = [];
+    for (const d of r.disponiveis) cotacoes.push(await cotarComRetry(d));
     // REGRA DE OURO: só apresenta tipo com PREÇO REAL (pré-reserva). NUNCA cai
     // na tarifa cheia do calendário (sem desconto por ocupação) — tipo sem
     // cotação real é OMITIDO, em vez de mostrar valor inflado.

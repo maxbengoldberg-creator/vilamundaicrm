@@ -3,6 +3,12 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 4.2 — 2026-06-13
+
+Reforço da regra de estilo: o bot estava usando travessão ("—").
+- REGRA_PRECO (vale nos 2 modelos): regra explícita proibindo travessão/hífen
+  para separar ideias, com exemplo certo/errado. Separar com ponto ou vírgula.
+
 ## Atualização 4.1 — 2026-06-13
 
 Correção do preço inflado (ex.: 1Q Superior saindo R$ 6.000 em vez de R$ 1.990).

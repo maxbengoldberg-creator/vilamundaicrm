@@ -480,6 +480,7 @@ function kpiH(lbl,ic,sub,val,cor){return `<div class="kpi"><div class="kt"><b>${
 async function vPipelines(){
   const leads=await GET('/api/v1/leads').catch(()=>[]);
   S.leads=leads;
+  S.selFrio=new Set(); // seleção de leads frios para exclusão em massa
   document.getElementById('main').innerHTML=`<div class="view active" style="height:100vh">
   <div class="pipe-wrap">
     <div class="pipe-side">
@@ -498,7 +499,11 @@ async function vPipelines(){
         ${COLS.map(c=>{const bs=leads.filter(l=>l.stage===c.id);const val=bs.reduce((a,l)=>a+Number(l.valor_cotado||0),0);return `
           <div class="col-k" data-col="${c.id}">
             <div class="ch"><div class="t1"><span class="dt" style="background:${c.cor}"></span><h4>${c.nome}</h4></div>
-              <div class="sub"><b>${brl(val)}</b><span>${bs.length} negócios</span></div></div>
+              <div class="sub"><b>${brl(val)}</b><span>${bs.length} negócios</span></div>
+              ${c.id==='frio'&&bs.length?`<div style="display:flex;gap:6px;margin-top:9px">
+                <button id="frioSelBtn" onclick="selecionarTodosFrio()" style="flex:1;background:var(--surf-3);border:1px solid var(--line-2);border-radius:6px;color:var(--txt-2);font-size:10.5px;font-weight:700;padding:5px 0;cursor:pointer;font-family:inherit">Selecionar todos</button>
+                <button id="frioDelBtn" onclick="excluirFrioSelecionados()" style="flex:1;background:rgba(248,113,113,.15);border:1px solid rgba(248,113,113,.4);border-radius:6px;color:#f87171;font-size:10.5px;font-weight:700;padding:5px 0;cursor:pointer;font-family:inherit">Excluir (0)</button>
+              </div>`:''}</div>
             <div class="cb" data-col="${c.id}">${bs.map(b=>bizCard(b)).join('')}</div>
             <div class="nb" onclick="modalNovoBiz('${c.id}')"><i class="ti ti-plus"></i> Novo negócio</div>
           </div>`}).join('')}
@@ -524,7 +529,7 @@ function aiBadgesHtml(id, enabled){
   </div>`;
 }
 function bizCard(b){return `<div class="biz" draggable="true" data-id="${b.id}" data-phone="${b.phone}" onclick="modalBiz(${b.id})">
-  <div class="bh"><div class="av" style="background:${avColor(b.nome)};width:29px;height:29px;font-size:11px">${initials(b.nome)}</div>
+  <div class="bh">${b.stage==='frio'?`<input type="checkbox" class="frio-chk" data-id="${b.id}" ${S.selFrio&&S.selFrio.has(String(b.id))?'checked':''} onclick="event.stopPropagation();toggleFrioSel('${b.id}',this.checked)" title="Selecionar para excluir" style="width:16px;height:16px;cursor:pointer;accent-color:#38bdf8;flex-shrink:0;margin-right:2px">`:''}<div class="av" style="background:${avColor(b.nome)};width:29px;height:29px;font-size:11px">${initials(b.nome)}</div>
     <div style="flex:1;min-width:0"><div class="nm">${b.nome||b.phone}</div><div class="ph">${b.phone}</div></div>
     ${aiBadgesHtml(b.id,b.ai_enabled)}</div>
   <div class="meta">${(b.tags||[]).map(t=>`<span class="tag gray" style="font-size:10px">${t}</span>`).join('')}</div>
@@ -658,6 +663,38 @@ async function deleteLead(id){
   closeModal();toast('Lead apagado');await vPipelines();
 }
 async function moverBiz(id,stage){await PATCH(`/api/v1/leads/${id}`,{stage}).catch(()=>null);toast('Etapa atualizada')}
+
+// ===== Seleção e exclusão em massa de leads no funil Lead Frio =====
+function frioIds(){return (S.leads||[]).filter(l=>l.stage==='frio').map(l=>String(l.id))}
+function atualizarFrioBtns(){
+  if(!S.selFrio)S.selFrio=new Set();
+  const del=document.getElementById('frioDelBtn');if(del)del.textContent=`Excluir (${S.selFrio.size})`;
+  const sel=document.getElementById('frioSelBtn');
+  if(sel){const all=frioIds();sel.textContent=(all.length&&all.every(id=>S.selFrio.has(id)))?'Limpar seleção':'Selecionar todos';}
+}
+function toggleFrioSel(id,checked){
+  if(!S.selFrio)S.selFrio=new Set();
+  id=String(id);if(checked)S.selFrio.add(id);else S.selFrio.delete(id);
+  atualizarFrioBtns();
+}
+function selecionarTodosFrio(){
+  if(!S.selFrio)S.selFrio=new Set();
+  const all=frioIds();const todosSelecionados=all.length&&all.every(id=>S.selFrio.has(id));
+  if(todosSelecionados)all.forEach(id=>S.selFrio.delete(id));else all.forEach(id=>S.selFrio.add(id));
+  document.querySelectorAll('.frio-chk').forEach(c=>{c.checked=S.selFrio.has(String(c.dataset.id))});
+  atualizarFrioBtns();
+}
+async function excluirFrioSelecionados(){
+  const ids=[...(S.selFrio||[])].filter(id=>frioIds().includes(id));
+  if(!ids.length){toast('Selecione ao menos um lead',false);return}
+  if(!confirm(`Excluir ${ids.length} lead(s) do funil Lead Frio?\nIsso apaga o cadastro e todo o histórico de conversa. Não dá para desfazer.`))return;
+  toast('Excluindo…');
+  let ok=0;
+  for(const id of ids){try{await api('DELETE',`/api/v1/leads/${id}`);ok++;}catch(e){console.error('falha ao excluir',id,e)}}
+  S.selFrio=new Set();
+  toast(`${ok} lead(s) excluído(s)`);
+  await vPipelines();
+}
 async function toggleAIBiz(id,v){await PATCH(`/api/v1/leads/${id}/ai`,{ai_enabled:v==='true'}).catch(()=>null);toast(v==='true'?'IA reativada':'Atendimento humano ativado')}
 function modalNovoBiz(col='qualif'){openModal(`<div class="modal-h"><div class="ic"><i class="ti ti-briefcase"></i></div><div><h3>Novo negócio</h3><p>Etapa: ${COLS.find(c=>c.id===col)?.nome||'Qualificação'}</p></div><span class="x" onclick="closeModal()"><i class="ti ti-x"></i></span></div>
   <div class="modal-b"><div class="fld"><label>Nome</label><input id="nNome" placeholder="Nome do hóspede"></div>

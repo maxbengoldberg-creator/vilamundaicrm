@@ -3,6 +3,20 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 5.1 — 2026-06-14
+
+Volta a REGRA_PRECO 4.9 (enxuta) + ajustes de condução na apresentação e
+qualificação (nas camadas/etapas, não na REGRA_PRECO, para não inchar):
+
+- **Casal → só 1 quarto:** para 1 ou 2 pessoas, apresentar SOMENTE o apartamento
+  de 1 quarto; não citar o de 2 quartos a menos que o lead peça mais espaço.
+- **Pet sem over-qualify:** confirmar que aceita sem taxa e seguir; não perguntar
+  porte nem quantidade.
+- **Ritmo de qualificação mais leve:** sem interrogatório, sem emendar várias
+  perguntas seguidas.
+
+Aplicado em c4_apres/c4_qualif (Modelo 2) e nos prompts apres/qualif (Modelo 1).
+
 ## Atualização 5.0 — 2026-06-14
 
 Revert: REGRA_PRECO volta à versão 4.8 (a pedido do CEO Max). Só o arquivo de

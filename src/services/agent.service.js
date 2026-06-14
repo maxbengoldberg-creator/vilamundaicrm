@@ -98,6 +98,50 @@ function parseFormAnuncio(text) {
 // Funde lead/conversas provisórios criados sob "@lid" no lead REAL, assim que
 // o vínculo lid->telefone é descoberto. Move as mensagens para a conversa real
 // (painel unificado) e apaga o provisório.
+// Escolhe o melhor nome entre o atual e um novo (pushName): prefere o mais
+// completo (mais palavras), nunca troca um nome completo por um parcial.
+export function melhorNome(atual, novo) {
+  const a = (atual || '').trim(), n = (novo || '').trim();
+  if (!n) return a; if (!a) return n; if (a === n) return a;
+  const wc = s => s.split(/\s+/).filter(Boolean).length;
+  return wc(n) > wc(a) ? n : a;
+}
+
+// Funde um lead duplicado no lead canônico: move conversas/mensagens, leva o
+// melhor nome e o lid, e apaga o duplicado.
+async function mergeLeadInto(dup, canonical) {
+  let conv = await Conversation.findOpenByLead(canonical.id)
+    || await Conversation.findOpenByPhone(canonical.phone)
+    || await Conversation.create({ lead_id: canonical.id, phone: canonical.phone });
+  const { rows: dupConvs } = await query('SELECT id FROM conversations WHERE lead_id = $1', [dup.id]);
+  let movidas = 0;
+  for (const dc of dupConvs) {
+    if (String(dc.id) === String(conv.id)) continue;
+    const r = await query('UPDATE messages SET conversation_id = $1 WHERE conversation_id = $2', [conv.id, dc.id]);
+    movidas += r.rowCount || 0;
+    await query('DELETE FROM conversations WHERE id = $1', [dc.id]);
+  }
+  const nome = melhorNome(canonical.nome, dup.nome);
+  if (nome && nome !== canonical.nome) { await Lead.update(canonical.id, { nome }); canonical.nome = nome; }
+  if (dup.lid && !canonical.lid) await Lead.update(canonical.id, { lid: dup.lid }).catch(() => {});
+  await query('DELETE FROM leads WHERE id = $1', [dup.id]);
+  return movidas;
+}
+
+// Funde duplicados do mesmo número que diferem só pelo 9º dígito (12 vs 13).
+export async function mergePhoneDuplicates(lead) {
+  if (!lead || String(lead.phone).includes('@')) return { merged: false };
+  const formas = Lead.formasPhoneBR(lead.phone);
+  if (formas.length < 2) return { merged: false };
+  const { rows: dups } = await query(
+    'SELECT * FROM leads WHERE phone = ANY($1::text[]) AND id <> $2 ORDER BY id ASC', [formas, lead.id]
+  );
+  let total = 0;
+  for (const dup of dups) total += await mergeLeadInto(dup, lead);
+  if (dups.length) console.log(`[merge-9dig] lead ${lead.id} (${lead.phone}) absorveu ${dups.length} duplicado(s), ${total} msgs`);
+  return { merged: dups.length > 0, dups: dups.length, mensagens: total };
+}
+
 export async function mergeLidOrphans(leadReal, lid) {
   try {
     const orphanPhone = `${lid}@lid`;
@@ -251,8 +295,16 @@ export async function handleIncoming({ phone, text, pushName, lid = null, operad
   // Receber e registrar o lead é obrigação do CRM; responder é decisão da IA.
   // Nenhum estado (robô geral, IA do lead) pode impedir o lead de aparecer
   // no funil (qualificação) e em Atendimentos.
-  let lead = await Lead.findByPhone(phone);
+  // Identidade tolerante ao 9º dígito (12 vs 13): a mesma pessoa não vira 2 leads.
+  let lead = await Lead.findByPhoneFlex(phone);
   if (!lead) lead = await Lead.create({ phone, nome: pushName || null, origem: 'whatsapp' });
+  // Grava/atualiza o nome quando o pushName chega (ou é mais completo).
+  if (pushName) {
+    const novoNome = melhorNome(lead.nome, pushName);
+    if (novoNome && novoNome !== lead.nome) { await Lead.update(lead.id, { nome: novoNome }).catch(() => {}); lead.nome = novoNome; }
+  }
+  // Funde qualquer duplicado do mesmo número que difere só pelo 9º dígito.
+  await mergePhoneDuplicates(lead);
 
   // Guarda o LID no lead de telefone REAL e FUNDE qualquer contato provisório
   // "@lid" desta mesma pessoa (mensagens passam para a conversa real).
@@ -273,9 +325,11 @@ export async function handleIncoming({ phone, text, pushName, lid = null, operad
     }).catch(() => {});
   }
 
-  let conv = await Conversation.findOpenByPhone(phone);
+  // Conversa do LEAD (consolidada): acha pela conversa do lead, depois pelo
+  // telefone exato — assim o 9º dígito não cria uma segunda conversa.
+  let conv = await Conversation.findOpenByLead(lead.id) || await Conversation.findOpenByPhone(phone);
   const isFirstMessage = !conv;
-  if (!conv) conv = await Conversation.create({ lead_id: lead.id, phone });
+  if (!conv) conv = await Conversation.create({ lead_id: lead.id, phone: lead.phone || phone });
 
   // Anúncio: marca origem e salva os dados do formulário na ficha.
   if (formAds) {
@@ -491,16 +545,12 @@ function textOf(content) {
 // do nosso número aparece como atendimento humano. Deduplica para não duplicar
 // o que a IA (sender 'ia') ou o envio pelo CRM (sender 'humano') já gravaram.
 export async function persistOutboundHuman({ phone, text }) {
-  let conv = await Conversation.findOpenByPhone(phone);
+  // Identidade consolidada (tolerante ao 9º dígito).
+  const cli = await Cliente.findByPhone(phone);
+  const lead = cli ? null : await Lead.findByPhoneFlex(phone);
+  let conv = (lead && await Conversation.findOpenByLead(lead.id)) || await Conversation.findOpenByPhone(phone);
   if (!conv) {
-    // Sem conversa aberta: cria vinculada ao lead (ou cliente) se existir.
-    const cli = await Cliente.findByPhone(phone);
-    let leadId = null;
-    if (!cli) {
-      const lead = await Lead.findByPhone(phone);
-      if (lead) leadId = lead.id;
-    }
-    conv = await Conversation.create({ lead_id: leadId, phone });
+    conv = await Conversation.create({ lead_id: lead ? lead.id : null, phone: (lead && lead.phone) || phone });
   }
   // Dedup: mesma mensagem já gravada nos últimos 120s (eco da IA ou do CRM).
   const jaExiste = await Message.existsRecentByContent(conv.id, text, 120);

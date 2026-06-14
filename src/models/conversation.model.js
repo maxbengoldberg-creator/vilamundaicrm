@@ -8,6 +8,17 @@ export async function findOpenByPhone(phone) {
   return rows[0] || null;
 }
 
+// Conversa aberta de um lead (independente da forma do telefone) — usada para
+// consolidar a conversa quando o número chega com/sem o 9º dígito.
+export async function findOpenByLead(leadId) {
+  if (!leadId) return null;
+  const { rows } = await query(
+    `SELECT * FROM conversations WHERE lead_id = $1 AND status = 'aberta' ORDER BY id DESC LIMIT 1`,
+    [leadId]
+  );
+  return rows[0] || null;
+}
+
 export async function create({ lead_id, phone }) {
   const { rows } = await query(
     `INSERT INTO conversations (lead_id, phone) VALUES ($1,$2) RETURNING *`,

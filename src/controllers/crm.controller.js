@@ -181,6 +181,28 @@ export async function backfillLids(req, res, next) {
   } catch (e) { next(e); }
 }
 
+// Backfill: funde leads duplicados que diferem só pelo 9º dígito (12 vs 13).
+// Mantém o mais antigo (canônico) e move conversas/mensagens para ele.
+export async function backfillTelefones(req, res, next) {
+  try {
+    const Lead = await import('../models/lead.model.js');
+    const { mergePhoneDuplicates } = await import('../services/agent.service.js');
+    const { rows: leads } = await query(
+      `SELECT id, phone FROM leads WHERE phone NOT LIKE '%@%' ORDER BY id ASC`
+    );
+    const vistos = new Set();        // ids já fundidos (não reprocessar)
+    const report = { grupos: 0, fundidos: 0, mensagens: 0 };
+    for (const l of leads) {
+      if (vistos.has(l.id)) continue;
+      const full = await Lead.findById(l.id);
+      if (!full) continue;
+      const r = await mergePhoneDuplicates(full);
+      if (r.merged) { report.grupos++; report.fundidos += r.dups; report.mensagens += r.mensagens; }
+    }
+    res.json({ ok: true, total_leads: leads.length, ...report });
+  } catch (e) { next(e); }
+}
+
 // Pausar/retomar a IA num lead (toggle manual da régua/atendimento humano).
 export async function toggleAI(req, res, next) {
   try {

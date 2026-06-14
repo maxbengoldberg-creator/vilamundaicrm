@@ -3,6 +3,25 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 4.5 — 2026-06-14
+
+Corrige duplicação de contato pelo 9º dígito (BR) e nome não gravado.
+
+**Problema:** o WhatsApp/Z-API entrega o número ora com 13 dígitos (com o 9) ora
+com 12 (sem o 9). Como o telefone é a chave de identidade, a mesma pessoa virava
+2 leads e 2 conversas (ex.: Lucia/Lucia Vania, Alessandra×2). O nome (pushName)
+também só era gravado na criação, nunca atualizado depois.
+
+**Correção:**
+- `lead.model`: `formasPhoneBR()` (gera as formas com/sem 9) e `findByPhoneFlex()`
+  (casa o lead por qualquer forma). O número de ENVIO não muda (segurança Z-API).
+- `agent.service`: `handleIncoming` usa lookup flexível, grava/atualiza o nome
+  quando o pushName chega (prefere o mais completo) e funde duplicados do 9º
+  dígito (`mergePhoneDuplicates` move conversas/mensagens para o lead mais antigo).
+- Conversa consolidada por lead (`findOpenByLead`), não pela forma do telefone.
+- `persistOutboundHuman` também usa a identidade consolidada.
+- Endpoint `POST /leads/backfill-telefones` funde os duplicados já existentes.
+
 ## Atualização 4.4 — 2026-06-14
 
 Corrige preço errado ao cotar vários tipos de uma vez (ex.: 1Q superior saindo

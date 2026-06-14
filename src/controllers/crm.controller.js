@@ -56,6 +56,17 @@ Regras: 3 a 5 bullets, frases curtas e diretas (o que o lead quer, datas/pessoas
   }
 }
 
+/* ---- STATUS DA CONEXÃO COM A Z-API (diagnóstico) ---- */
+export async function zapiStatus(req, res) {
+  const out = {};
+  try { out.status = await zapi.status(); }
+  catch (e) { out.status_erro = e.response?.data || e.message; }
+  try { out.webhooks = await zapi.webhooks(); }
+  catch (e) { out.webhooks_erro = e.response?.data || e.message; }
+  out.webhook_esperado = `${req.protocol}://${req.get('host')}/webhooks/whatsapp`;
+  res.json(out);
+}
+
 /* ---- CANCELAR RESERVA NO PMS ---- */
 export async function cancelarReservaPms(req, res) {
   try {

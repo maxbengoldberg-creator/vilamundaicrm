@@ -47,6 +47,14 @@ export const zapi = {
   sendDocument(phone, docUrl, fileName) {
     return post(`/send-document/pdf`, { phone, document: docUrl, fileName });
   },
+  // Status da conexão da instância (telefone conectado?).
+  status() {
+    return get('/status');
+  },
+  // Webhooks configurados na Z-API (para conferir se o "ao receber" aponta para nós).
+  webhooks() {
+    return get('/webhooks');
+  },
   // Verifica se o número tem WhatsApp e retorna o LID associado
   // ({ exists, phone, lid }). LID->telefone não existe (privacidade);
   // telefone->LID é o único caminho — usado para mapear proativamente.

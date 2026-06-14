@@ -28,6 +28,9 @@ api.use(requireApiKey);
 api.post('/agent/run', runAgent);
 api.post('/automations/generate', generateAutomation);
 
+// Status da conexão com a Z-API (diagnóstico)
+api.get('/zapi/status', crm.zapiStatus);
+
 // Cotação nativa no PMS (cria pré-reserva sem valor; o PMS precifica)
 api.post('/pms/cotacao', crm.cotacaoPms);
 // Cancelar reserva no PMS por ID

@@ -9,6 +9,7 @@ import * as gerente from '../controllers/gerente.controller.js';
 import * as lab from '../controllers/lab.controller.js';
 import * as fotos from '../controllers/fotos.controller.js';
 import * as contrato from '../controllers/contrato.controller.js';
+import * as auth from '../controllers/auth.controller.js';
 
 const router = Router();
 
@@ -16,6 +17,9 @@ router.get('/health', (req, res) => res.json({ ok: true, ts: Date.now() }));
 
 router.post('/webhooks/whatsapp', whatsappWebhook);
 router.post('/webhooks/meta-leads', metaLeadsWebhook);
+
+// Login do painel — PÚBLICO (fica antes do /api/v1 protegido por chave/token).
+router.post('/api/v1/auth/login', auth.login);
 
 const api = Router();
 api.use(requireApiKey);

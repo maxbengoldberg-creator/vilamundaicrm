@@ -3,6 +3,20 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 4.8 — 2026-06-14
+
+Login real no painel + chave da API fora do HTML (etapa 1 do app no celular).
+
+- Login com usuário/senha (`maxbgoldberg` / senha guardada como hash sha256, não
+  em texto; sobrescrevível por CRM_USER/CRM_PASS_HASH no Railway).
+- `POST /api/v1/auth/login` (público) devolve um token de sessão (HMAC stateless,
+  30 dias, segredo AUTH_SECRET ou APP_API_KEY). `src/services/auth.js`.
+- Middleware passa a aceitar `Authorization: Bearer <token>` OU `x-api-key`
+  (chave mantida só para integrações servidor-a-servidor).
+- Front: removida a API key embutida no HTML; agora usa o token do login
+  (localStorage), entra direto se já logado, 401 derruba para o login. Tela de
+  login funcional (Usuário/Senha) com Enter para entrar.
+
 ## Atualização 4.7 — 2026-06-14
 
 A mensagem de aviso de novo lead passa a ser só o texto "Novo Lead" (sem nome,

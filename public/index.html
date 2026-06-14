@@ -322,8 +322,8 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--txt)}
     <div class="lb-logo"><div class="zig"><i class="ti ti-brand-zapier"></i></div><div><b>Vila Mundaí</b><span>CRM</span></div></div>
     <h1 style="font-size:24px;margin-bottom:5px">Entrar no painel</h1>
     <p style="color:var(--txt-2);margin-bottom:22px;font-size:13.5px">Atendimento, funil e automações com IA.</p>
-    <div class="fld"><label>E-mail</label><input id="liEmail" value="gestor@vilamundai.com.br"></div>
-    <div class="fld"><label>Senha</label><input id="liPass" type="password" value="••••••••"></div>
+    <div class="fld"><label>Usuário</label><input id="liEmail" autocomplete="username" placeholder="usuário"></div>
+    <div class="fld"><label>Senha</label><input id="liPass" type="password" autocomplete="current-password" placeholder="senha" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button class="btn-blue" onclick="doLogin()"><i class="ti ti-login-2"></i> Entrar</button>
   </div>
 </div>
@@ -344,16 +344,18 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--txt)}
    CONFIGURAÇÃO DA API
    ============================================================ */
 const API_URL = window.location.origin;
-const API_KEY = 'vilamundai2024secreto';
+let AUTH_TOKEN = localStorage.getItem('vm_token') || '';
+function authHeaders(extra){ const h = Object.assign({}, extra||{}); if(AUTH_TOKEN) h['Authorization']='Bearer '+AUTH_TOKEN; return h; }
 
 async function api(method, path, body) {
   try {
     const opts = {
       method,
-      headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
     };
     if (body) opts.body = JSON.stringify(body);
     const r = await fetch(API_URL + path, opts);
+    if (r.status === 401) { logout(); throw new Error('sessão expirada, faça login de novo'); }
     if (!r.ok) throw new Error(await r.text());
     return r.json();
   } catch (e) {
@@ -428,11 +430,29 @@ async function renderMain(){
   if(fn)await fn();
 }
 
-function doLogin(){
+async function doLogin(){
+  const user=(document.getElementById('liEmail').value||'').trim();
+  const pass=document.getElementById('liPass').value||'';
+  if(!user||!pass){toast('Preencha usuário e senha',false);return}
+  try{
+    const r=await fetch(API_URL+'/api/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user,pass})});
+    if(!r.ok){toast('Usuário ou senha inválidos',false);return}
+    const j=await r.json();
+    AUTH_TOKEN=j.token; localStorage.setItem('vm_token',AUTH_TOKEN);
+    entrarApp();
+  }catch(e){toast('Erro ao entrar',false)}
+}
+function entrarApp(){
   document.getElementById('login').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('support').style.display='flex';
   renderRail();renderMain();
+}
+function logout(){
+  AUTH_TOKEN=''; localStorage.removeItem('vm_token');
+  document.getElementById('app').style.display='none';
+  document.getElementById('support').style.display='none';
+  const lg=document.getElementById('login'); if(lg) lg.style.display='flex';
 }
 
 /* ============================================================
@@ -553,7 +573,7 @@ function bizCard(b){return `<div class="biz" draggable="true" data-id="${b.id}" 
 async function verContrato(id,nome){
   toast('Gerando contrato…');
   try{
-    const r=await fetch(`${API_URL}/api/v1/leads/${id}/contrato`,{headers:{'x-api-key':API_KEY}});
+    const r=await fetch(`${API_URL}/api/v1/leads/${id}/contrato`,{headers:authHeaders()});
     if(!r.ok)throw new Error(await r.text());
     const blob=await r.blob();
     const fname=`Contrato Vila Mundai - ${(nome||('lead '+id)).trim()}.pdf`;
@@ -2011,6 +2031,9 @@ function bindSlider(){
   knob.addEventListener('mousedown',()=>drag=true);track.addEventListener('click',set);
   window.addEventListener('mousemove',e=>{if(drag)set(e)});window.addEventListener('mouseup',()=>drag=false);
 }
+
+// BOOT: se já há token salvo, entra direto no painel; senão fica na tela de login.
+if(AUTH_TOKEN){ entrarApp(); }
 </script>
 </body>
 </html>

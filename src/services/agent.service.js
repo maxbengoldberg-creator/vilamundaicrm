@@ -151,10 +151,7 @@ async function notificarNovoLead(lead, primeiraMsg) {
     if (enabled !== true || !dest) return;
     // Não avisa se o "lead novo" é o próprio número de aviso (teste do dono).
     if (Lead.formasPhoneBR(lead.phone).includes(dest)) return;
-    const nome = lead.nome || 'sem nome';
-    const preview = String(primeiraMsg || '').replace(/\s+/g, ' ').slice(0, 160);
-    const msg = `Novo lead na Vila Mundaí\nNome: ${nome}\nTelefone: ${lead.phone}${preview ? `\nMensagem: "${preview}"` : ''}`;
-    await zapi.sendText(dest, msg);
+    await zapi.sendText(dest, 'Novo Lead');
     console.log(`[notify] dono avisado de novo lead ${lead.id} (${lead.phone})`);
   } catch (e) {
     console.error('[notify] aviso de novo lead falhou:', e.message);

@@ -3,6 +3,11 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 4.7 — 2026-06-14
+
+A mensagem de aviso de novo lead passa a ser só o texto "Novo Lead" (sem nome,
+telefone nem prévia), a pedido do dono.
+
 ## Atualização 4.6 — 2026-06-14
 
 Aviso de novo lead no WhatsApp pessoal do dono.

@@ -214,6 +214,16 @@ Se o lead pedir uma ideia de valor: dê a faixa aproximada (a partir de R$199 a 
 Se o lead pedir para falar com uma pessoa: use escalar_humano.`,
   },
   {
+    stage: 'reveillon',
+    nome: 'Reveillon',
+    descricao: 'Datas que pegam 30 ou 31 de dezembro — condições especiais tratadas pela equipe (IA desligada).',
+    prompt_body: `${HEADER}
+
+ETAPA: RÉVEILLON
+As datas pegam 30 ou 31 de dezembro. O Réveillon tem condições especiais, tratadas pela equipe humana. A IA fica desligada aqui.
+NÃO cote, NÃO informe preço, NÃO prossiga com orçamento. Se precisar responder, diga apenas que por ser Réveillon a equipe vai verificar as condições e retornar.`,
+  },
+  {
     stage: 'morno',
     nome: 'Morno',
     descricao: 'Reaquece leads que pararam de responder após 48h.',
@@ -349,6 +359,7 @@ export async function seedIfEmpty() {
     ganho:      { required_tags: ['ganho'], blocked_tags: [] },
     morno:      { blocked_tags: ['ganho'] },
     sem_datas:  { blocked_tags: ['ganho'] },
+    reveillon:  { blocked_tags: ['ganho'] },
   };
   for (const [stage, cond] of Object.entries(TRIGGER_CONDITIONS)) {
     await query(

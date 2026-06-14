@@ -53,6 +53,36 @@ const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 // Pausa antes de confirmar a pré-reserva (parece mais natural, "estou registrando").
 const DELAY_CONFIRMA_RESERVA_MS = 30000;
 
+// ===== RÉVEILLON =====
+// Datas que pegam 30 ou 31 de dezembro têm condições especiais tratadas pela
+// equipe: a IA não cota nem informa preço, manda o lead para o funil "reveillon".
+function toYMD(v) {
+  if (!v) return null;
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v.toISOString().slice(0, 10);
+  const s = String(v).slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+}
+function periodoReveillon(checkin, checkout) {
+  const ci = toYMD(checkin), co = toYMD(checkout);
+  if (!ci || !co) return false;
+  const di = new Date(ci + 'T00:00:00Z'), dc = new Date(co + 'T00:00:00Z');
+  if (Number.isNaN(di.getTime()) || Number.isNaN(dc.getTime()) || dc < di) return false;
+  // O hóspede está presente de check-in a check-out (inclusive): se algum desses
+  // dias for 30 ou 31 de dezembro, é Réveillon.
+  for (let d = new Date(di), i = 0; d <= dc && i < 400; d.setUTCDate(d.getUTCDate() + 1), i++) {
+    if (d.getUTCMonth() === 11 && (d.getUTCDate() === 30 || d.getUTCDate() === 31)) return true;
+  }
+  return false;
+}
+const REVEILLON_RESULT = {
+  ok: true, reveillon: true, cotar: false,
+  instrucao: 'Período de Réveillon (as datas pegam 30 ou 31 de dezembro). NÃO cote, NÃO informe preço, NÃO prossiga com orçamento. Diga de forma breve que por ser Réveillon a equipe vai verificar as condições especiais e retornar.',
+  mensagem_sugerida: 'Por ser período de Réveillon, as condições são especiais, a equipe vai verificar e te retornar.',
+};
+async function marcarReveillon(leadId) {
+  if (leadId) await Lead.update(leadId, { stage: 'reveillon', ai_enabled: false }).catch(() => {});
+}
+
 // ==========================================================
 //  Executores das ferramentas. Cada handler recebe:
 //    (input, ctx)  onde ctx = { lead, phone }
@@ -62,6 +92,11 @@ const DELAY_CONFIRMA_RESERVA_MS = 30000;
 
 export const HANDLERS = {
   async consultar_disponibilidade(input, ctx) {
+    // Réveillon (30/31 dez): não cota nem informa preço — a equipe assume.
+    if (periodoReveillon(input.checkin, input.checkout)) {
+      await marcarReveillon(ctx?.lead?.id);
+      return REVEILLON_RESULT;
+    }
     // Tenta de novo em caso de instabilidade (até 3x) — o agente não deve
     // expor "erro" ao lead; quem resolve é o retry aqui.
     let r;
@@ -137,6 +172,14 @@ export const HANDLERS = {
       if (input[k] !== undefined && input[k] !== null && input[k] !== '') patch[k] = input[k];
     }
     await Lead.update(ctx.lead.id, patch);
+    // Réveillon (30/31 dez): assim que as datas aparecem, manda para o funil
+    // reveillon e desliga a IA — sem cotar nem passar preço.
+    const ci = input.checkin || ctx.lead.checkin;
+    const co = input.checkout || ctx.lead.checkout;
+    if (periodoReveillon(ci, co)) {
+      await marcarReveillon(ctx.lead.id);
+      return { ok: true, salvo: patch, ...REVEILLON_RESULT };
+    }
     return { ok: true, salvo: patch };
   },
 

@@ -3,6 +3,17 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 4.3 — 2026-06-14
+
+Funil "Reveillon" + bloqueio de cotação para datas de virada de ano.
+
+- Datas que pegam **30 ou 31 de dezembro** → lead vai para o funil **reveillon**
+  e a **IA é desligada**, sem cotar nem passar preço (condições especiais da equipe).
+- Detecção em `handlers.js` (`periodoReveillon`): aplicada no `extrair_dados_lead`
+  (assim que as datas aparecem) e no `consultar_disponibilidade` (bloqueia a cotação).
+- Regra em REGRA_PRECO (vale nos 2 modelos): não cotar/precificar Réveillon.
+- Novo estágio `reveillon`: seed + trigger + camada (lab) + coluna no Kanban.
+
 ## Atualização 4.2 — 2026-06-13
 
 Reforço da regra de estilo: o bot estava usando travessão ("—").

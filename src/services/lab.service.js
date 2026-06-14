@@ -13,7 +13,7 @@ import { query } from '../config/db.js';
 import * as AutomationStage from '../models/automation_stage.model.js';
 import { REGRA_PRECO } from './stage.prompts.js';
 
-export const STAGES = ['qualif', 'apres', 'quente', 'negociacao', 'contrato', 'assinatura', 'pagamento', 'ganho', 'sem_datas', 'morno'];
+export const STAGES = ['qualif', 'apres', 'quente', 'negociacao', 'contrato', 'assinatura', 'pagamento', 'ganho', 'sem_datas', 'reveillon', 'morno'];
 
 // ---------- C1: Identidade & Tom (união curada dos blocos TOM das 8 etapas) ----------
 const C1_SEED = `Você é o Max, host e consultor da Vila Mundaí em Porto Seguro, Bahia. Hoje é {{hoje}}.

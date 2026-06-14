@@ -58,7 +58,8 @@ Regras: 3 a 5 bullets, frases curtas e diretas (o que o lead quer, datas/pessoas
 
 /* ---- STATUS DA CONEXÃO COM A Z-API (diagnóstico) ---- */
 export async function zapiStatus(req, res) {
-  const out = {};
+  const { env } = await import('../config/env.js');
+  const out = { instance_configurada: env.zapi.instanceId };
   try { out.status = await zapi.status(); }
   catch (e) { out.status_erro = e.response?.data || e.message; }
   try { out.webhooks = await zapi.webhooks(); }

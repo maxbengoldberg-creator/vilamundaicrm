@@ -202,6 +202,34 @@ function pareceAnuncio(text) {
   return campos.filter(re => re.test(t)).length >= 2;
 }
 
+// Detecta o formulário de reserva preenchido NO SITE (texto estruturado que o
+// site manda pelo WhatsApp). Diferente do anúncio do Meta.
+function pareceSite(text) {
+  if (!text) return false;
+  const t = String(text).toLowerCase();
+  if (/gostaria de fazer uma reserva no vila mund/.test(t)) return true;
+  if (/detalhes da reserva/.test(t) && /check-?in:/.test(t) && /h[oó]spedes?:/.test(t)) return true;
+  return false;
+}
+
+function parseDataBR(s) {
+  const m = String(s || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (!m) return null;
+  const yyyy = m[3].length === 2 ? '20' + m[3] : m[3];
+  return `${yyyy}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+}
+
+// Extrai nome, datas e nº de hóspedes do formulário do site (para a ficha).
+function parseFormSite(text) {
+  const t = String(text || '');
+  return {
+    nome:     t.match(/Nome:\s*([^\n]+)/i)?.[1]?.trim() || null,
+    checkin:  parseDataBR(t.match(/Check-?in:\s*([0-9/]+)/i)?.[1]),
+    checkout: parseDataBR(t.match(/Check-?out:\s*([0-9/]+)/i)?.[1]),
+    guests:   parseInt(t.match(/H[oó]spedes?:\s*(\d+)/i)?.[1] || '', 10) || null,
+  };
+}
+
 function isMsgCurta(text) {
   return text.trim().split(/\s+/).length <= 6;
 }
@@ -371,6 +399,21 @@ export async function handleIncoming({ phone, text, pushName, lid = null, operad
   if (!operador) {
     await Message.create({ conversation_id: conv.id, role: 'user', content: text, sender: 'lead' });
     await Conversation.touch(conv.id, text);
+  }
+
+  // LEAD DO SITE: o formulário do site é só dado, sem conversa/rapport. Vai para
+  // o funil "lead_site" e a IA fica DESLIGADA — atendimento humano, com calma.
+  // Salva os dados do formulário na ficha (datas/pessoas/nome) para o operador.
+  if (!operador && pareceSite(text)) {
+    const f = parseFormSite(text);
+    const patch = { stage: 'lead_site', ai_enabled: false, origem: 'site' };
+    if (f.nome && (!lead.nome || lead.nome === pushName)) patch.nome = f.nome;
+    if (f.checkin) patch.checkin = f.checkin;
+    if (f.checkout) patch.checkout = f.checkout;
+    if (f.guests) patch.guests = f.guests;
+    await Lead.update(lead.id, patch).catch(() => {});
+    console.log(`[agente] lead ${phone} veio do SITE — funil lead_site, IA desligada`);
+    return { skipped: true, reason: 'lead_site' };
   }
 
   // ===== Só agora a IA decide se responde. =====

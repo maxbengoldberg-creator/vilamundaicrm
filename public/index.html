@@ -395,6 +395,7 @@ const COLS=[
   {id:'sem_datas',nome:'Sem datas',cor:'#94a3b8'},
   {id:'segunda_tentativa',nome:'Segunda tentativa',cor:'#f472b6'},
   {id:'reveillon',nome:'Reveillon',cor:'#facc15'},
+  {id:'lead_site',nome:'Lead do site',cor:'#38bdf8'},
   {id:'morno',nome:'Morno',cor:'#64748b'},
   {id:'frio',nome:'Lead Frio',cor:'#38bdf8'},
 ];
@@ -767,8 +768,8 @@ async function vLeads(){
    AUTOMAÇÕES — Editor de prompts por etapa
    ============================================================ */
 const STAGE_ORDER=['qualif','apres','quente','negociacao','contrato','assinatura','pagamento','ganho','sem_datas','morno'];
-const STAGE_COR={qualif:'#4f8ff7',apres:'#9b87f5',quente:'#fbbf24',negociacao:'#fb923c',contrato:'#2dd4bf',assinatura:'#22d3ee',pagamento:'#a78bfa',ganho:'#34d399',sem_datas:'#94a3b8',segunda_tentativa:'#f472b6',reveillon:'#facc15',morno:'#64748b'};
-const STAGE_IC={qualif:'ti-user-question',apres:'ti-presentation',quente:'ti-flame',negociacao:'ti-scale',contrato:'ti-file-text',assinatura:'ti-signature',pagamento:'ti-credit-card',ganho:'ti-trophy',sem_datas:'ti-calendar-off',segunda_tentativa:'ti-refresh',reveillon:'ti-sparkles',morno:'ti-snowflake'};
+const STAGE_COR={qualif:'#4f8ff7',apres:'#9b87f5',quente:'#fbbf24',negociacao:'#fb923c',contrato:'#2dd4bf',assinatura:'#22d3ee',pagamento:'#a78bfa',ganho:'#34d399',sem_datas:'#94a3b8',segunda_tentativa:'#f472b6',reveillon:'#facc15',lead_site:'#38bdf8',morno:'#64748b'};
+const STAGE_IC={qualif:'ti-user-question',apres:'ti-presentation',quente:'ti-flame',negociacao:'ti-scale',contrato:'ti-file-text',assinatura:'ti-signature',pagamento:'ti-credit-card',ganho:'ti-trophy',sem_datas:'ti-calendar-off',segunda_tentativa:'ti-refresh',reveillon:'ti-sparkles',lead_site:'ti-world',morno:'ti-snowflake'};
 
 async function vAutomations(){
   const [stagesRaw,insights,regras]=await Promise.all([

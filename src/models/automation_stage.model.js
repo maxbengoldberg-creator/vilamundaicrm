@@ -214,6 +214,16 @@ Se o lead pedir uma ideia de valor: dê a faixa aproximada (a partir de R$199 a 
 Se o lead pedir para falar com uma pessoa: use escalar_humano.`,
   },
   {
+    stage: 'lead_site',
+    nome: 'Lead do site',
+    descricao: 'Lead que preencheu o formulário do site — atendimento humano (IA desligada).',
+    prompt_body: `${HEADER}
+
+ETAPA: LEAD DO SITE
+O lead preencheu o formulário de reserva no site. É atendimento humano, conduzido com calma pela equipe. A IA fica desligada aqui.
+Se por algum motivo precisar responder, apenas cumprimente pelo nome e diga que já vai dar atenção ao pedido. Não despeje preço nem condições.`,
+  },
+  {
     stage: 'reveillon',
     nome: 'Reveillon',
     descricao: 'Datas que pegam 30 ou 31 de dezembro — condições especiais tratadas pela equipe (IA desligada).',
@@ -360,6 +370,7 @@ export async function seedIfEmpty() {
     morno:      { blocked_tags: ['ganho'] },
     sem_datas:  { blocked_tags: ['ganho'] },
     reveillon:  { blocked_tags: ['ganho'] },
+    lead_site:  { blocked_tags: ['ganho'] },
   };
   for (const [stage, cond] of Object.entries(TRIGGER_CONDITIONS)) {
     await query(

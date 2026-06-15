@@ -3,6 +3,18 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 5.2 — 2026-06-14
+
+Lead do site → funil próprio + IA desligada.
+
+- Quando chega o **formulário de reserva do site** (texto estruturado "Gostaria
+  de fazer uma reserva no Vila Mundaí… Detalhes da reserva: Check-in/Check-out/
+  Hóspedes…"), o lead vai para o funil **"Lead do site"** e a **IA é desligada**
+  (atendimento humano, com calma — não há conversa/rapport ainda, só o dado).
+- Detecção `pareceSite` + `parseFormSite` em `handleIncoming`: salva nome/datas/
+  hóspedes na ficha e NÃO deixa a IA disparar preço/condições.
+- Novo estágio `lead_site`: seed + trigger + camada + coluna no Kanban.
+
 ## Atualização 5.1 — 2026-06-14
 
 Volta a REGRA_PRECO 4.9 (enxuta) + ajustes de condução na apresentação e

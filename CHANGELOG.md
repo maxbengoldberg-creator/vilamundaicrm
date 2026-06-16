@@ -3,6 +3,17 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 5.3 — 2026-06-14
+
+Ajustes de condução (camadas/etapas, sem mexer na REGRA_PRECO):
+
+- **Nome com rapport:** apresentar-se primeiro e só então pegar o primeiro nome
+  de forma natural. Não abrir com "Com quem eu falo?" nem jogar essa pergunta
+  solta depois do orçamento. (qualif / c4_qualif)
+- **Grupo → categoria:** para 1, 2 ou 3 pessoas, apresentar e cotar SOMENTE o
+  apartamento de 1 quarto. Só mostrar/cotar o de 2 quartos se o lead pedir um
+  maior ou mais espaço. Aplicado também no orçamento. (apres+quente / c4_apres+c4_quente)
+
 ## Atualização 5.2 — 2026-06-14
 
 Lead do site → funil próprio + IA desligada.

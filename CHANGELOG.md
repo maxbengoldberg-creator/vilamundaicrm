@@ -3,6 +3,18 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 5.4 — 2026-06-16
+
+Reservas para 2027 → funil próprio + IA desligada.
+
+- Datas em **2027** (check-in ou check-out) → lead vai para o funil **"Reservas
+  2027"** e a **IA é desligada** (condições de 2027 ainda não definidas; humano assume).
+- Detecção `ehReserva2027` em `handlers.js`: aplicada no `extrair_dados_lead` e no
+  `consultar_disponibilidade` (bloqueia a cotação), igual ao Réveillon.
+- Regra curta em REGRA_PRECO: não cotar/precificar 2027.
+- Novo estágio `reservas_2027`: seed + trigger + camada + coluna no Kanban.
+- Obs.: só ano 2027 (se um dia precisar 2028+, é fácil estender).
+
 ## Atualização 5.3 — 2026-06-14
 
 Ajustes de condução (camadas/etapas, sem mexer na REGRA_PRECO):

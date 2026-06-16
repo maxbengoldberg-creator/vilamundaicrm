@@ -83,6 +83,22 @@ async function marcarReveillon(leadId) {
   if (leadId) await Lead.update(leadId, { stage: 'reveillon', ai_enabled: false }).catch(() => {});
 }
 
+// ===== RESERVAS 2027 =====
+// Datas em 2027 ainda não têm condições definidas: a IA não cota, manda o lead
+// para o funil "reservas_2027" e desliga (atendimento humano).
+function anoDe(v) { const y = toYMD(v); return y ? parseInt(y.slice(0, 4), 10) : null; }
+function ehReserva2027(checkin, checkout) {
+  return anoDe(checkin) === 2027 || anoDe(checkout) === 2027;
+}
+const RESERVA_2027_RESULT = {
+  ok: true, reserva_2027: true, cotar: false,
+  instrucao: 'Reserva para 2027. NÃO cote, NÃO informe preço. Diga de forma breve que para 2027 a equipe ainda vai definir as condições e retorna.',
+  mensagem_sugerida: 'Para datas em 2027 as condições ainda estão sendo definidas pela equipe, vou verificar e te retornar.',
+};
+async function marcarReserva2027(leadId) {
+  if (leadId) await Lead.update(leadId, { stage: 'reservas_2027', ai_enabled: false }).catch(() => {});
+}
+
 // ==========================================================
 //  Executores das ferramentas. Cada handler recebe:
 //    (input, ctx)  onde ctx = { lead, phone }
@@ -96,6 +112,11 @@ export const HANDLERS = {
     if (periodoReveillon(input.checkin, input.checkout)) {
       await marcarReveillon(ctx?.lead?.id);
       return REVEILLON_RESULT;
+    }
+    // Reservas 2027: não cota — a equipe define as condições.
+    if (ehReserva2027(input.checkin, input.checkout)) {
+      await marcarReserva2027(ctx?.lead?.id);
+      return RESERVA_2027_RESULT;
     }
     // Tenta de novo em caso de instabilidade (até 3x) — o agente não deve
     // expor "erro" ao lead; quem resolve é o retry aqui.
@@ -185,6 +206,10 @@ export const HANDLERS = {
     if (periodoReveillon(ci, co)) {
       await marcarReveillon(ctx.lead.id);
       return { ok: true, salvo: patch, ...REVEILLON_RESULT };
+    }
+    if (ehReserva2027(ci, co)) {
+      await marcarReserva2027(ctx.lead.id);
+      return { ok: true, salvo: patch, ...RESERVA_2027_RESULT };
     }
     return { ok: true, salvo: patch };
   },

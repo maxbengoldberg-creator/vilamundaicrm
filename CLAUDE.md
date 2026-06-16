@@ -54,9 +54,23 @@ Seletor na aba Agente (setting `agent_mode`, só um ativo por vez, troca sem dep
 - **Modelo 2**: corpo = camadas do Laboratório compostas em runtime (C1 identidade + C2 fatos + ficha + C4 da etapa).
 A única diferença entre os modos é o CORPO por etapa. As **regras de condução** (REGRA_PRECO no código, ou C3 publicada) e o bloco "JÁ ACONTECEU" são SEMPRE anexados — compartilhados pelos dois modos. Logo, regra de conduta nova vai em REGRA_PRECO e vale nos dois. O Simulador testa só rascunhos no formato Modelo 1.
 
+## Versionamento (a partir de 2026-06)
+Toda mudança de comportamento vira uma "Atualização X.Y": commit + **git tag `atualizacao-X.Y`** + entrada no **CHANGELOG.md**. Para reverter: `git checkout atualizacao-X.Y -- <arquivo>` (regras/código) ou pelas revisões da aba Fluxos (prompts M1). Mudanças de prompt/camada são feitas via API em produção (runtime, cache 60s) e NÃO ficam no git — só o CHANGELOG as registra; código (REGRA_PRECO, handlers) fica no git. Estado atual: 4.9/5.1 (REGRA_PRECO enxuta + preço exato), 5.2 (lead do site), 5.3 (nome com rapport + grupo 1-3 só 1 quarto). **Modo em produção: Modelo 2.**
+
+## Login e avisos
+- **Login real** (4.8): usuário `maxbgoldberg`, senha guardada como hash sha256 (sobrescrevível por env CRM_USER/CRM_PASS_HASH). `POST /api/v1/auth/login` (público) → token HMAC 30d. A API key saiu do HTML; middleware aceita Bearer token OU x-api-key (só integrações). `src/services/auth.js`.
+- **Aviso "Novo Lead"** (4.6/4.7): novo lead na 1ª mensagem → WhatsApp pro dono (texto fixo "Novo Lead"). Configurável na aba Agente (settings notify_lead_phone/enabled).
+
+## Z-API / Meta (integração) — diagnóstico e pendência
+- **Instância do CRM: `3F426948DA59C2C0D026BE9C7B4BA8CB`** (número da Vila 557399547899). Webhook "Ao receber" → /webhooks/whatsapp. Há OUTRA instância (datacrazy) que NÃO é do CRM — manter só a do CRM.
+- **Meta IA do WhatsApp Business derruba a Z-API** — manter desligada.
+- Diagnóstico: `GET /api/v1/zapi/status` (conexão + device) e `GET /api/v1/webhooks/log` (últimos hits recebidos).
+- Meta Ads → leads: quebrou em 14/06 (conector Meta→planilha caiu, "Acesso a leads" vazio) e foi **resolvido em 16/06**. O Apps Script da planilha só faz Planilha→CRM. Se cair de novo: o conector Meta→planilha (externo) é o suspeito; alternativa durável é **Click-to-WhatsApp** (lead clica → WhatsApp → CRM, sem planilha/conector).
+
 ## Funil (colunas no Kanban)
-qualif → apres → quente → negociacao → contrato → pagamento → ganho
-Desvios: **sem_datas** (lead sem datas definidas — IA fica leve e à disposição, reengaja quando o lead trouxer datas; robô estaciona aqui a partir de qualif/apres após no máx 2 perguntas de data; de sem_datas volta a qualif), **morno** e **frio** (passivos, IA off).
+qualif → apres → quente → negociacao → contrato → **assinatura** → pagamento → ganho
+Desvios/IA off (atendimento humano): **lead_site** (formulário do site, detectado por `pareceSite`), **reveillon** (datas pegando 30/31 dez), **contrato**/**assinatura** (pós pré-reserva/contrato), **morno**, **frio**, **segunda_tentativa**. **sem_datas** (lead sem datas — IA leve, reengaja quando trouxer datas; robô estaciona de qualif/apres após máx 2 perguntas de data).
+- `mover_funil('contrato')` desliga a IA; "Enviar contrato" (aba Pipelines) move para assinatura + IA off.
 - Robô avança UMA etapa por vez (trava server-side); não conhece "frio".
 - Humano move livre: Kanban, modal, ou seletor de etapa na ficha do chat.
 - Tag "ganho" força stage ganho; criar_reserva tem trava de acomodação (ficha do lead).

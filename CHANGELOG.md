@@ -3,6 +3,19 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 5.5 — 2026-06-17
+
+Apresentação antes do preço + fotos sob demanda (sem empurrar).
+
+- **Ritmo do preço (REGRA_PRECO):** se o lead pede preço só 1 vez, primeiro
+  apresenta o apartamento ideal e conduz (fotos só se ele pedir, responde
+  dúvidas); o preço vem DEPOIS da apresentação. Preço de imediato só se o lead
+  INSISTIR no valor (2+ pedidos). (Antes: pedir preço 1x já disparava o valor.)
+- **Apresentação (apres / c4_apres, M1 e M2):** apresentar o apto que se adequa
+  e aguardar; NÃO enviar foto por conta própria; foto só sob pedido (+ "é algo
+  nesse sentido?"); se não pedir foto mas tiver dúvida, responder e mencionar que
+  tem fotos uma vez; em 2ª dúvida seguida, só responder, sem insistir nas fotos.
+
 ## Atualização 5.4 — 2026-06-16
 
 Reservas para 2027 → funil próprio + IA desligada.

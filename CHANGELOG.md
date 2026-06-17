@@ -3,6 +3,18 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 5.7 — 2026-06-17
+
+Estadia curta (até 2 noites) → funil "Reserva ruim" + IA desligada.
+
+- Datas que dão **1 ou 2 noites** → lead vai para o funil **"Reserva ruim"** e a
+  **IA é desligada** (a equipe decide se atende). Não cota nem informa preço.
+- Detecção `ehReservaRuim` (numNoites <= 2) em `handlers.js`, no
+  `extrair_dados_lead` e no `consultar_disponibilidade` (bloqueia a cotação),
+  depois das checagens de Réveillon e 2027.
+- Regra curta em REGRA_PRECO; o bot nunca diz ao lead que é "reserva ruim".
+- Novo estágio `reserva_ruim`: seed + trigger + camada + coluna no Kanban.
+
 ## Atualização 5.6 — 2026-06-17
 
 Botão "Ler e gerar contrato" no funil Contrato.

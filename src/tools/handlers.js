@@ -99,6 +99,30 @@ async function marcarReserva2027(leadId) {
   if (leadId) await Lead.update(leadId, { stage: 'reservas_2027', ai_enabled: false }).catch(() => {});
 }
 
+// ===== RESERVA RUIM (estadia curta: até 2 noites) =====
+// Estadias de 1 ou 2 noites são reservas ruins: a IA não cota, manda o lead
+// para o funil "reserva_ruim" e desliga (a equipe decide).
+function numNoites(checkin, checkout) {
+  const ci = toYMD(checkin), co = toYMD(checkout);
+  if (!ci || !co) return null;
+  const di = new Date(ci + 'T00:00:00Z'), dc = new Date(co + 'T00:00:00Z');
+  if (Number.isNaN(di.getTime()) || Number.isNaN(dc.getTime())) return null;
+  const n = Math.round((dc - di) / 86400000);
+  return n > 0 ? n : null;
+}
+function ehReservaRuim(checkin, checkout) {
+  const n = numNoites(checkin, checkout);
+  return n !== null && n <= 2;
+}
+const RESERVA_RUIM_RESULT = {
+  ok: true, reserva_ruim: true, cotar: false,
+  instrucao: 'Estadia de até 2 noites. NÃO cote, NÃO informe preço, NÃO prossiga. Diga de forma breve que vai verificar a disponibilidade para essas datas e a equipe retorna. NÃO diga ao lead que é "reserva ruim".',
+  mensagem_sugerida: 'Deixa eu verificar a disponibilidade para essas datas, a equipe retorna em seguida.',
+};
+async function marcarReservaRuim(leadId) {
+  if (leadId) await Lead.update(leadId, { stage: 'reserva_ruim', ai_enabled: false }).catch(() => {});
+}
+
 // ==========================================================
 //  Executores das ferramentas. Cada handler recebe:
 //    (input, ctx)  onde ctx = { lead, phone }
@@ -117,6 +141,11 @@ export const HANDLERS = {
     if (ehReserva2027(input.checkin, input.checkout)) {
       await marcarReserva2027(ctx?.lead?.id);
       return RESERVA_2027_RESULT;
+    }
+    // Reserva ruim (até 2 noites): não cota — a equipe decide.
+    if (ehReservaRuim(input.checkin, input.checkout)) {
+      await marcarReservaRuim(ctx?.lead?.id);
+      return RESERVA_RUIM_RESULT;
     }
     // Tenta de novo em caso de instabilidade (até 3x) — o agente não deve
     // expor "erro" ao lead; quem resolve é o retry aqui.
@@ -210,6 +239,10 @@ export const HANDLERS = {
     if (ehReserva2027(ci, co)) {
       await marcarReserva2027(ctx.lead.id);
       return { ok: true, salvo: patch, ...RESERVA_2027_RESULT };
+    }
+    if (ehReservaRuim(ci, co)) {
+      await marcarReservaRuim(ctx.lead.id);
+      return { ok: true, salvo: patch, ...RESERVA_RUIM_RESULT };
     }
     return { ok: true, salvo: patch };
   },

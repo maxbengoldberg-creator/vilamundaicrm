@@ -214,6 +214,16 @@ Se o lead pedir uma ideia de valor: dê a faixa aproximada (a partir de R$199 a 
 Se o lead pedir para falar com uma pessoa: use escalar_humano.`,
   },
   {
+    stage: 'reserva_ruim',
+    nome: 'Reserva ruim',
+    descricao: 'Estadia curta (até 2 noites) — atendimento humano decide (IA desligada).',
+    prompt_body: `${HEADER}
+
+ETAPA: RESERVA RUIM
+Estadia de até 2 noites. A equipe decide se atende. A IA fica desligada aqui.
+Se precisar responder: diga apenas que vai verificar a disponibilidade para essas datas e a equipe retorna. Não cote, não informe preço, e nunca diga ao lead que é "reserva ruim".`,
+  },
+  {
     stage: 'reservas_2027',
     nome: 'Reservas 2027',
     descricao: 'Pedidos de reserva com datas em 2027 — condições ainda não definidas, atendimento humano (IA desligada).',
@@ -382,6 +392,7 @@ export async function seedIfEmpty() {
     reveillon:  { blocked_tags: ['ganho'] },
     lead_site:  { blocked_tags: ['ganho'] },
     reservas_2027: { blocked_tags: ['ganho'] },
+    reserva_ruim: { blocked_tags: ['ganho'] },
   };
   for (const [stage, cond] of Object.entries(TRIGGER_CONDITIONS)) {
     await query(

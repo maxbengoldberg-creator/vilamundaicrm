@@ -567,9 +567,12 @@ function bizCard(b){return `<div class="biz" draggable="true" data-id="${b.id}" 
       <button onclick="event.stopPropagation();abrirPromptLead(${b.id},'${b.phone}')" title="Enviar instrução ao agente" style="background:rgba(79,143,247,.15);border:1px solid rgba(79,143,247,.35);border-radius:5px;color:#7fb0ff;font-size:10px;font-weight:700;padding:2px 7px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:3px"><i class="ti ti-terminal-2" style="font-size:12px"></i>Prompt</button>
     </span>
   </div>
-  ${(b.stage==='contrato'||b.stage==='assinatura')?`<div style="display:flex;gap:6px;border-top:1px solid var(--line);padding-top:8px;margin-top:4px">
+  ${(b.stage==='contrato'||b.stage==='assinatura')?`<div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:8px;margin-top:4px">
+    <button onclick="event.stopPropagation();lerEgerarContrato(${b.id},'${(b.nome||'').replace(/[\\'"]/g,' ').trim()}')" title="Lê a conversa, preenche os dados e gera o contrato (sem falar com o lead)" style="width:100%;background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.45);border-radius:6px;color:#a78bfa;font-size:11px;font-weight:700;padding:5px 0;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:4px"><i class="ti ti-file-ai" style="font-size:13px"></i>Ler e gerar contrato</button>
+    <div style="display:flex;gap:6px">
     <button onclick="event.stopPropagation();verContrato(${b.id},'${(b.nome||'').replace(/[\\'"]/g,' ').trim()}')" title="Salvar contrato em PDF" style="flex:1;background:rgba(45,212,191,.15);border:1px solid rgba(45,212,191,.4);border-radius:6px;color:#2dd4bf;font-size:11px;font-weight:700;padding:5px 0;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:4px"><i class="ti ti-file-download" style="font-size:13px"></i>Ver contrato</button>
     <button onclick="event.stopPropagation();enviarContrato(${b.id},'${b.phone}')" title="Enviar contrato por WhatsApp" style="flex:1;background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.4);border-radius:6px;color:#34d399;font-size:11px;font-weight:700;padding:5px 0;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:4px"><i class="ti ti-send" style="font-size:13px"></i>Enviar contrato</button>
+    </div>
   </div>`:''}
 </div>`}
 async function verContrato(id,nome){
@@ -593,6 +596,16 @@ async function verContrato(id,nome){
     setTimeout(()=>URL.revokeObjectURL(url),60000);
     toast('Contrato baixado em PDF');
   }catch(e){toast('Erro ao gerar contrato',false);console.error(e);}
+}
+async function lerEgerarContrato(id,nome){
+  toast('Lendo a conversa e preenchendo os dados…');
+  try{
+    const r=await POST(`/api/v1/leads/${id}/contrato/preparar`,{});
+    if(!r.ok){toast(r.erro||'não consegui preparar o contrato',false);return}
+    const campos=Object.keys(r.preenchido||{});
+    toast(campos.length?('Preenchi: '+campos.join(', ')+'. Gerando…'):'Dados já completos. Gerando…');
+    await verContrato(id,nome); // baixa o PDF já com os dados completos (sem falar com o lead)
+  }catch(e){toast('Erro ao ler/gerar contrato',false);console.error(e);}
 }
 async function enviarContrato(id,phone){
   if(!confirm('Enviar o contrato em PDF por WhatsApp? O lead vai para Assinatura e a IA fica desligada.'))return;

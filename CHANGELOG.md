@@ -3,6 +3,18 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 5.6 — 2026-06-17
+
+Botão "Ler e gerar contrato" no funil Contrato.
+
+- Novo botão (Pipelines, cards em contrato/assinatura) que **lê a conversa**,
+  extrai os dados do contrato (nome completo, CPF, nascimento, datas, pessoas,
+  apto, valor) com Haiku, **preenche o que falta na ficha** do lead e em seguida
+  **gera/baixa o PDF** — SEM falar nada com o lead.
+- Endpoint `POST /leads/:id/contrato/preparar` (lê chat → extrai → preenche;
+  só completa campos vazios, prefere o nome mais completo). Depois o front chama
+  o `verContrato` para baixar o PDF já completo.
+
 ## Atualização 5.5 — 2026-06-17
 
 Apresentação antes do preço + fotos sob demanda (sem empurrar).

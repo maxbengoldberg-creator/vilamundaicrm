@@ -51,6 +51,7 @@ api.delete('/leads/:id', crm.deleteLead);
 
 // Contrato (gera com docxtpl + LibreOffice, envia via Z-API)
 api.get('/leads/:id/contrato', contrato.verContrato);
+api.post('/leads/:id/contrato/preparar', contrato.prepararContrato);
 api.post('/leads/:id/contrato/enviar', contrato.enviarContrato);
 
 // Conversas

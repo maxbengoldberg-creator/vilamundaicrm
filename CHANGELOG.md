@@ -3,6 +3,17 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 5.8 — 2026-06-18
+
+Corrige erro 400 ("tool_use sem tool_result") ao instruir o agente.
+
+- O histórico podia terminar com um `tool_use` sem o `tool_result` (par quebrado
+  por turno interrompido ou pela janela de 20 msgs cortar o par). Ao colar a
+  instrução do operador logo depois, a API da Anthropic rejeitava (todo tool_use
+  exige tool_result na sequência).
+- `toClaudeMessages` agora também remove um `assistant` com `tool_use` que não
+  tem o `tool_result` na próxima mensagem (passo 4), além dos tool_result órfãos.
+
 ## Atualização 5.7 — 2026-06-17
 
 Estadia curta (até 2 noites) → funil "Reserva ruim" + IA desligada.

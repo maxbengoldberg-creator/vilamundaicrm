@@ -308,6 +308,31 @@ function toClaudeMessages(rows) {
         break; // reinicia a varredura
       }
     }
+
+    // 4. assistant com tool_use SEM tool_result na próxima mensagem (par quebrado
+    // ou tool_use solto no fim da janela). A API exige tool_result logo depois;
+    // sem ele, remove o assistant. Cobre o caso da instrução do operador colada
+    // após um tool_use pendente.
+    for (let i = 0; i < msgs.length; i++) {
+      const msg = msgs[i];
+      if (msg.role !== 'assistant' || !Array.isArray(msg.content)) continue;
+      const toolUses = msg.content.filter(b => b?.type === 'tool_use');
+      if (toolUses.length === 0) continue;
+
+      const next = msgs[i + 1];
+      const nextResultIds = new Set(
+        (next?.role === 'user' && Array.isArray(next.content) ? next.content : [])
+          .filter(b => b?.type === 'tool_result').map(b => b.tool_use_id)
+      );
+      const semResultado = toolUses.some(tu => !nextResultIds.has(tu.id));
+      if (semResultado) {
+        const ids = toolUses.map(tu => tu.id).join(', ');
+        console.log(`[toClaudeMessages] tool_use sem tool_result ids=[${ids}] na posicao ${i}, removendo o assistant`);
+        msgs.splice(i, 1);
+        stable = false;
+        break; // reinicia a varredura
+      }
+    }
   }
 
   return msgs;

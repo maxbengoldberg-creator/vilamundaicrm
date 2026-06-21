@@ -123,7 +123,13 @@ async function mergeLeadInto(dup, canonical) {
   }
   const nome = melhorNome(canonical.nome, dup.nome);
   if (nome && nome !== canonical.nome) { await Lead.update(canonical.id, { nome }); canonical.nome = nome; }
-  if (dup.lid && !canonical.lid) await Lead.update(canonical.id, { lid: dup.lid }).catch(() => {});
+  // Preserva dados do duplicado que o canônico não tem (lid, datas, email, etc.).
+  const fill = {};
+  for (const k of ['lid', 'email', 'checkin', 'checkout', 'guests', 'acomodacao', 'cpf', 'data_nascimento']) {
+    if (!canonical[k] && dup[k]) fill[k] = dup[k];
+  }
+  if (dup.origem && dup.origem !== 'whatsapp' && (!canonical.origem || canonical.origem === 'whatsapp')) fill.origem = dup.origem;
+  if (Object.keys(fill).length) { await Lead.update(canonical.id, fill).catch(() => {}); Object.assign(canonical, fill); }
   await query('DELETE FROM leads WHERE id = $1', [dup.id]);
   return movidas;
 }
@@ -140,6 +146,44 @@ export async function mergePhoneDuplicates(lead) {
   for (const dup of dups) total += await mergeLeadInto(dup, lead);
   if (dups.length) console.log(`[merge-9dig] lead ${lead.id} (${lead.phone}) absorveu ${dups.length} duplicado(s), ${total} msgs`);
   return { merged: dups.length > 0, dups: dups.length, mensagens: total };
+}
+
+// Telefone BR válido: 55 + DDD (11-99) + 8/9 dígitos (12 ou 13 no total).
+// Usado para não confiar em número de formulário inválido como identidade.
+export function phoneValidoBR(p) {
+  const d = String(p || '').replace(/\D/g, '');
+  if (d.length !== 12 && d.length !== 13) return false;
+  if (!d.startsWith('55')) return false;
+  return /^[1-9][1-9]$/.test(d.slice(2, 4)); // DDD sem zero
+}
+
+// Funde no lead atual qualquer OUTRO lead com o mesmo lid (mesma pessoa que
+// virou 2 contatos, ex.: número de formulário inválido + número real).
+export async function mergeLidDuplicates(lead) {
+  if (!lead || !lead.lid) return { merged: false };
+  const { rows: dups } = await query(
+    'SELECT * FROM leads WHERE lid = $1 AND id <> $2 ORDER BY id ASC', [lead.lid, lead.id]
+  );
+  let total = 0;
+  for (const dup of dups) total += await mergeLeadInto(dup, lead);
+  if (dups.length) console.log(`[merge-lid] lead ${lead.id} (${lead.phone}) absorveu ${dups.length} lead(s) com mesmo lid`);
+  return { merged: dups.length > 0, dups: dups.length, mensagens: total };
+}
+
+// Funde TODOS os leads de um lid num único canônico — o que tem telefone BR
+// válido (senão o mais antigo). Usado no backfill dos duplicados já existentes.
+export async function mergeLidGroup(lid) {
+  if (!lid) return { merged: false };
+  const { rows } = await query('SELECT * FROM leads WHERE lid = $1 ORDER BY id ASC', [lid]);
+  if (rows.length < 2) return { merged: false };
+  const canonical = rows.find(l => phoneValidoBR(l.phone)) || rows[0];
+  let total = 0, n = 0;
+  for (const dup of rows) {
+    if (String(dup.id) === String(canonical.id)) continue;
+    total += await mergeLeadInto(dup, canonical); n++;
+  }
+  if (n) console.log(`[merge-lid] grupo lid ${lid}: canônico ${canonical.id} (${canonical.phone}) absorveu ${n} lead(s)`);
+  return { merged: n > 0, canonical: canonical.id, dups: n, mensagens: total };
 }
 
 // Avisa o dono no WhatsApp pessoal quando um lead NOVO aparece. Configurável
@@ -347,10 +391,17 @@ export async function handleIncoming({ phone, text, pushName, lid = null, operad
   let formAds = null;
   if (!operador && pareceAnuncio(text)) {
     formAds = parseFormAnuncio(text);
-    if (formAds.phone && String(phone).includes('@')) {
+    if (String(phone).includes('@')) {
       if (!lid) lid = String(phone).replace(/\D/g, '') || null;
-      console.log(`[agente] anúncio via @lid: identidade resolvida pelo formulário ${phone} -> ${formAds.phone}`);
-      phone = formAds.phone;
+      // Só troca o @lid pelo número do formulário se ele for um telefone BR
+      // VÁLIDO. Formulário às vezes traz número inválido (vira lead fragmentado);
+      // nesse caso mantém o @lid e o merge por lid junta com o número real depois.
+      if (formAds.phone && phoneValidoBR(formAds.phone)) {
+        console.log(`[agente] anúncio via @lid: identidade resolvida pelo formulário ${phone} -> ${formAds.phone}`);
+        phone = formAds.phone;
+      } else if (formAds.phone) {
+        console.warn(`[agente] anúncio: número do formulário inválido (${formAds.phone}), mantendo @lid ${phone}`);
+      }
     }
   }
 
@@ -375,6 +426,9 @@ export async function handleIncoming({ phone, text, pushName, lid = null, operad
   }
   // Funde qualquer duplicado do mesmo número que difere só pelo 9º dígito.
   await mergePhoneDuplicates(lead);
+  // Funde qualquer outro lead com o MESMO lid (ex.: nº de formulário inválido +
+  // nº real viraram 2 contatos). Consolida a conversa para a IA ler tudo.
+  await mergeLidDuplicates(lead);
   // Lead novo (primeira mensagem): avisa o dono no WhatsApp pessoal.
   if (isNovoLead && !operador) notificarNovoLead(lead, text);
 

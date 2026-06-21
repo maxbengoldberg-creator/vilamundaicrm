@@ -217,6 +217,23 @@ export async function backfillTelefones(req, res, next) {
   } catch (e) { next(e); }
 }
 
+// Backfill: funde leads que compartilham o mesmo lid (ex.: número de formulário
+// inválido + número real viraram 2 contatos). Canônico = o de telefone válido.
+export async function backfillLidDuplicados(req, res, next) {
+  try {
+    const { mergeLidGroup } = await import('../services/agent.service.js');
+    const { rows } = await query(
+      `SELECT lid, count(*) AS n FROM leads WHERE lid IS NOT NULL GROUP BY lid HAVING count(*) > 1`
+    );
+    const report = { grupos: rows.length, fundidos: 0, mensagens: 0 };
+    for (const g of rows) {
+      const r = await mergeLidGroup(g.lid);
+      if (r.merged) { report.fundidos += r.dups; report.mensagens += r.mensagens; }
+    }
+    res.json({ ok: true, ...report });
+  } catch (e) { next(e); }
+}
+
 // Pausar/retomar a IA num lead (toggle manual da régua/atendimento humano).
 export async function toggleAI(req, res, next) {
   try {

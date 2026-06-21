@@ -3,6 +3,27 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 5.9 — 2026-06-21
+
+Corrige fragmentação de lead de anúncio (mesma pessoa virando 2 contatos) e a
+reapresentação do bot.
+
+**Causa:** anúncio com número de formulário INVÁLIDO (ex.: "0157398617339") era
+usado como identidade do lead; as mensagens reais vinham pelo número verdadeiro
+e criavam um 2º lead. O merge por @lid não juntava (só tratava o formato
+`{lid}@lid`). Resultado: conversa partida (CRM incompleto) e o bot lia histórico
+sem a abertura, então se reapresentava.
+
+**Correção (`agent.service`):**
+- `phoneValidoBR`: número de formulário só vira identidade se for telefone BR
+  válido; senão mantém o @lid (que o merge junta com o número real depois).
+- `mergeLidDuplicates`: ao processar um lead, funde qualquer OUTRO lead com o
+  mesmo lid no atual (consolida a conversa; a IA passa a ler tudo).
+- `mergeLeadInto`: preserva lid/datas/email/etc. e a origem (meta_ads/site) do
+  duplicado.
+- Endpoint `POST /leads/backfill-lid-duplicados` (canônico = telefone válido)
+  para fundir os duplicados já existentes.
+
 ## Atualização 5.8 — 2026-06-18
 
 Corrige erro 400 ("tool_use sem tool_result") ao instruir o agente.

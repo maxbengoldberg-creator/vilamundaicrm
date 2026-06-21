@@ -47,6 +47,7 @@ api.patch('/leads/:id/ai', crm.toggleAI);
 api.post('/leads/:id/vincular-lid', crm.vincularLid);
 api.post('/leads/backfill-lids', crm.backfillLids);
 api.post('/leads/backfill-telefones', crm.backfillTelefones);
+api.post('/leads/backfill-lid-duplicados', crm.backfillLidDuplicados);
 api.delete('/leads/:id', crm.deleteLead);
 
 // Contrato (gera com docxtpl + LibreOffice, envia via Z-API)

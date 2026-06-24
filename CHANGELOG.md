@@ -3,6 +3,16 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 5.11 — 2026-06-24
+
+Localização: endereço + link do Google Maps (em texto).
+
+- Quando o lead pergunta onde fica, o bot responde o endereço uma vez e manda o
+  link do Google Maps (https://maps.app.goo.gl/P9DWNuW47tCi1EmY8). Em texto, sem
+  depender de enviar imagem de mapa (onde ele falhava — anunciava "vou mandar o
+  mapa" e não mandava) e sem repetir o endereço nem martelar o bairro.
+- Regra em REGRA_PRECO (vale nos 2 modelos).
+
 ## Atualização 5.10 — 2026-06-24
 
 Grupo grande (>7 pessoas) → funil "Grupo grande" + IA desligada.

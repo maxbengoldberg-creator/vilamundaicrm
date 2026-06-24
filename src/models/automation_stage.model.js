@@ -214,6 +214,16 @@ Se o lead pedir uma ideia de valor: dê a faixa aproximada (a partir de R$199 a 
 Se o lead pedir para falar com uma pessoa: use escalar_humano.`,
   },
   {
+    stage: 'grupo_grande',
+    nome: 'Grupo grande',
+    descricao: 'Grupo acima de 7 pessoas (precisa de mais de um apartamento) — atendimento humano (IA desligada).',
+    prompt_body: `${HEADER}
+
+ETAPA: GRUPO GRANDE
+Grupo com mais de 7 pessoas, que precisa de mais de um apartamento. A equipe atende. A IA fica desligada aqui.
+Se precisar responder: diga apenas que para um grupo desse tamanho a equipe vai verificar as melhores opções (mais de um apartamento) e retorna. Não cote, não informe preço, e nunca diga que está indisponível.`,
+  },
+  {
     stage: 'reserva_ruim',
     nome: 'Reserva ruim',
     descricao: 'Estadia curta (até 2 noites) — atendimento humano decide (IA desligada).',
@@ -393,6 +403,7 @@ export async function seedIfEmpty() {
     lead_site:  { blocked_tags: ['ganho'] },
     reservas_2027: { blocked_tags: ['ganho'] },
     reserva_ruim: { blocked_tags: ['ganho'] },
+    grupo_grande: { blocked_tags: ['ganho'] },
   };
   for (const [stage, cond] of Object.entries(TRIGGER_CONDITIONS)) {
     await query(

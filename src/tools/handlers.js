@@ -123,6 +123,23 @@ async function marcarReservaRuim(leadId) {
   if (leadId) await Lead.update(leadId, { stage: 'reserva_ruim', ai_enabled: false }).catch(() => {});
 }
 
+// ===== GRUPO GRANDE (mais de 7 pessoas) =====
+// Acima de 7 hóspedes precisa de mais de um apartamento (o maior comporta 7). A
+// ferramenta não cota reserva de múltiplas unidades, então NÃO diz "indisponível":
+// manda para o funil "grupo_grande" e desliga a IA (a equipe atende).
+function ehGrupoGrande(guests) {
+  const n = parseInt(guests, 10);
+  return Number.isFinite(n) && n > 7;
+}
+const GRUPO_GRANDE_RESULT = {
+  ok: true, grupo_grande: true, cotar: false,
+  instrucao: 'Grupo grande (mais de 7 pessoas): precisa de mais de um apartamento. NÃO cote e NÃO diga que está indisponível. Diga de forma breve que para um grupo desse tamanho a equipe vai verificar as melhores opções (mais de um apartamento) e retornar.',
+  mensagem_sugerida: 'Para um grupo desse tamanho, vou verificar com a equipe as melhores opções e já retornamos.',
+};
+async function marcarGrupoGrande(leadId) {
+  if (leadId) await Lead.update(leadId, { stage: 'grupo_grande', ai_enabled: false }).catch(() => {});
+}
+
 // ==========================================================
 //  Executores das ferramentas. Cada handler recebe:
 //    (input, ctx)  onde ctx = { lead, phone }
@@ -141,6 +158,11 @@ export const HANDLERS = {
     if (ehReserva2027(input.checkin, input.checkout)) {
       await marcarReserva2027(ctx?.lead?.id);
       return RESERVA_2027_RESULT;
+    }
+    // Grupo grande (>7 pessoas): precisa de 2+ apartamentos — a equipe assume.
+    if (ehGrupoGrande(input.guests)) {
+      await marcarGrupoGrande(ctx?.lead?.id);
+      return GRUPO_GRANDE_RESULT;
     }
     // Reserva ruim (até 2 noites): não cota — a equipe decide.
     if (ehReservaRuim(input.checkin, input.checkout)) {
@@ -239,6 +261,10 @@ export const HANDLERS = {
     if (ehReserva2027(ci, co)) {
       await marcarReserva2027(ctx.lead.id);
       return { ok: true, salvo: patch, ...RESERVA_2027_RESULT };
+    }
+    if (ehGrupoGrande(input.guests || ctx.lead.guests)) {
+      await marcarGrupoGrande(ctx.lead.id);
+      return { ok: true, salvo: patch, ...GRUPO_GRANDE_RESULT };
     }
     if (ehReservaRuim(ci, co)) {
       await marcarReservaRuim(ctx.lead.id);

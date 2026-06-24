@@ -3,6 +3,19 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 5.10 — 2026-06-24
+
+Grupo grande (>7 pessoas) → funil "Grupo grande" + IA desligada.
+
+- Grupos acima de 7 pessoas precisam de mais de um apartamento (o maior comporta
+  7), e a ferramenta não cota múltiplas unidades — antes o bot dizia
+  "indisponível" (falso). Agora: detecta >7 hóspedes → manda para o funil
+  **"Grupo grande"** com **IA desligada** (a equipe atende), sem cotar nem dizer
+  indisponível.
+- Detecção `ehGrupoGrande` em `handlers.js` (extrair_dados_lead e
+  consultar_disponibilidade), com prioridade sobre "reserva ruim".
+- Regra curta em REGRA_PRECO; novo estágio `grupo_grande` (seed/trigger/lab/coluna).
+
 ## Atualização 5.9 — 2026-06-21
 
 Corrige fragmentação de lead de anúncio (mesma pessoa virando 2 contatos) e a

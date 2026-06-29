@@ -3,6 +3,19 @@
 Registro de atualizações para acompanhar mudanças e poder voltar atrás.
 Cada versão tem uma tag git de mesmo nome (ex.: `atualizacao-4.0`).
 
+## Atualização 5.12 — 2026-06-28
+
+Reserva OTA (Airbnb/Booking) → funil "Reserva OTA" + IA desligada.
+
+- Hóspede que já reservou por Airbnb ou Booking e fala com o CRM não é um lead
+  de venda. Agora: detecta a menção à OTA no texto → manda para o funil novo
+  **"Reserva OTA"** com **IA desligada** (atendimento humano), sem entrar no
+  fluxo de vendas. Mesmo padrão do `lead_site`.
+- Detecção `pareceOTA` em `agent.service.js`: exige mencionar a OTA E uma palavra
+  de reserva juntas (evita falso-positivo de quem só pergunta se pode reservar
+  pelo Airbnb). Não rebaixa quem já está em contrato/assinatura/pagamento/ganho.
+- Novo estágio `reserva_ota` no Kanban (coluna, cor, ícone).
+
 ## Atualização 5.11 — 2026-06-24
 
 Localização: endereço + link do Google Maps (em texto).

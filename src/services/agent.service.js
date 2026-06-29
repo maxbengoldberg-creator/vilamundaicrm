@@ -256,6 +256,20 @@ function pareceSite(text) {
   return false;
 }
 
+// Detecta hóspede que JÁ TEM reserva por uma OTA (Airbnb/Booking) e está só
+// falando com o CRM. Vai para o funil "reserva_ota" com a IA DESLIGADA —
+// atendimento humano, fora do fluxo de vendas. Detecção por texto: exige
+// mencionar a OTA E a palavra "reserva" (ou similar), pra evitar falso-positivo
+// de quem só está perguntando se pode reservar pelo Airbnb.
+function pareceOTA(text) {
+  if (!text) return false;
+  const t = String(text).toLowerCase();
+  const temOTA = /\b(airbnb|air bnb|booking(\.com)?)\b/.test(t);
+  if (!temOTA) return false;
+  const temReserva = /reserv(a|ei|ado|amos)|hosped(agem|ei|ado)|minha estad|fiz pelo|fiz no|comprei pelo/.test(t);
+  return temReserva;
+}
+
 function parseDataBR(s) {
   const m = String(s || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
   if (!m) return null;
@@ -493,6 +507,16 @@ export async function handleIncoming({ phone, text, pushName, lid = null, operad
     await Lead.update(lead.id, patch).catch(() => {});
     console.log(`[agente] lead ${phone} veio do SITE — funil lead_site, IA desligada`);
     return { skipped: true, reason: 'lead_site' };
+  }
+
+  // RESERVA OTA: hóspede que já reservou por Airbnb/Booking. Não é um lead de
+  // venda — vai para o funil "reserva_ota" com a IA DESLIGADA (atendimento
+  // humano). Mesmo padrão do lead_site. Não dispara para quem já está num
+  // estágio de fechamento (não rebaixa quem já é cliente em negociação).
+  if (!operador && pareceOTA(text) && !['ganho', 'pagamento', 'assinatura', 'contrato'].includes(lead.stage)) {
+    await Lead.update(lead.id, { stage: 'reserva_ota', ai_enabled: false }).catch(() => {});
+    console.log(`[agente] lead ${phone} é RESERVA OTA (Airbnb/Booking) — funil reserva_ota, IA desligada`);
+    return { skipped: true, reason: 'reserva_ota' };
   }
 
   // ===== Só agora a IA decide se responde. =====
